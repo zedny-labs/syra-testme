@@ -1,0 +1,17 @@
+# Version control & CI
+.git
+.github
+
+# Docker / compose files (not needed inside the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+.env
+
+# Design reference assets (not referenced by the site)
+screenshots
+uploads
+.thumbnail
+
+# Docs
+*.md

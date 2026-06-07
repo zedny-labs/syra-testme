@@ -1,0 +1,34 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - feat/3d
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Publish a plain single-platform Docker manifest (no attestation
+          # manifest-list) so older clients like docker-compose v1.29.2 can
+          # read it without the 'ContainerConfig' KeyError.
+          provenance: false
+          sbom: false
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/var-exam:feat-3d
+            ${{ secrets.DOCKER_USERNAME }}/var-exam:latest

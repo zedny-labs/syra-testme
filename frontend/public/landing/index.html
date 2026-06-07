@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VAR EXAM — Secure Every Assessment</title>
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="apple-touch-icon" href="assets/favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Orbitron:wght@400;500;600;700;800;900&family=Michroma&family=Syncopate:wght@400;700&family=Quicksand:wght@300;400;500&family=Sora:wght@200;300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/styles.css?v=73" />
+</head>
+<body style="font-family: Raleway">
+
+<!-- WebGL tunnel -->
+<canvas id="scene"></canvas>
+
+<!-- ===================== PRE-INTRO — DIGITAL CONSCIOUSNESS ===================== -->
+<canvas id="intro-scene"></canvas>
+<div id="intro-overlay" data-screen-label="Intro — AI Consciousness">
+  <!-- connector lines: each panel feeds INTO the core -->
+  <svg id="intro-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="50" y1="50" x2="15" y2="25" /><line x1="50" y1="50" x2="13" y2="50" /><line x1="50" y1="50" x2="15" y2="75" />
+    <line x1="50" y1="50" x2="85" y2="25" /><line x1="50" y1="50" x2="87" y2="50" /><line x1="50" y1="50" x2="85" y2="75" />
+  </svg>
+  <div class="intro-cap" data-cap="init"><span class="cap-pulse"></span>VAR EXAM INITIALIZATION</div>
+  <div class="intro-cap soft" data-cap="forming">Initializing neural core</div>
+
+  <!-- holographic observation panels around the core -->
+  <div class="holo-panel" data-side="l" data-pan="0" style="left:13%; top:24%;">
+    <div class="hp-label">Behavior Signals</div>
+    <div class="hp-viz viz-graph"><svg viewBox="0 0 90 34" preserveAspectRatio="none"><polyline points="0,24 12,18 22,26 34,10 46,20 58,7 70,18 82,12 90,16"/></svg></div>
+    <div class="hp-meta">PATTERN · LIVE</div>
+  </div>
+  <div class="holo-panel" data-side="l" data-pan="1" style="left:11%; top:50%;">
+    <div class="hp-label">Audio Activity</div>
+    <div class="hp-viz viz-wave"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="hp-meta">FREQ · MONITOR</div>
+  </div>
+  <div class="holo-panel" data-side="l" data-pan="2" style="left:13%; top:76%;">
+    <div class="hp-label">Eye Tracking</div>
+    <div class="hp-viz viz-eye"><span class="iris"></span><span class="track t1"></span><span class="track t2"></span></div>
+    <div class="hp-meta">GAZE · VECTOR</div>
+  </div>
+  <div class="holo-panel" data-side="r" data-pan="3" style="left:87%; top:24%;">
+    <div class="hp-label">Identity Metrics</div>
+    <div class="hp-viz viz-id"><span class="r1"></span><span class="r2"></span><span class="r3"></span><b>99.6</b></div>
+    <div class="hp-meta">CONFIDENCE</div>
+  </div>
+  <div class="holo-panel" data-side="r" data-pan="4" style="left:89%; top:50%;">
+    <div class="hp-label">Focus Monitoring</div>
+    <div class="hp-viz viz-focus"><span class="cross"></span><span class="dot"></span></div>
+    <div class="hp-meta">ATTENTION</div>
+  </div>
+  <div class="holo-panel" data-side="r" data-pan="5" style="left:87%; top:76%;">
+    <div class="hp-label">Device Detection</div>
+    <div class="hp-viz viz-scan"><span class="sweep"></span></div>
+    <div class="hp-meta">ENV · SCAN</div>
+  </div>
+
+  <!-- scene 4 statements -->
+  <div class="intro-statement" data-cap="normal">Everything Looks Normal.</div>
+  <div class="intro-statement alt" data-cap="ordoesit">Or Does It?</div>
+  <div class="intro-cap soft mid" data-cap="analyzing"><span class="cap-pulse"></span>DEEP ANALYSIS ENGAGED</div>
+
+  <!-- scene 6 hidden-signal discoveries -->
+  <div class="intro-signals" id="introSignals">
+    <div class="isig">Voice Activity Detected</div>
+    <div class="isig">Multiple Presence Detected</div>
+    <div class="isig">Suspicious Device Detected</div>
+    <div class="isig">Abnormal Behavior Pattern Detected</div>
+    <div class="isig">Identity Confidence Calculated</div>
+    <div class="isig">Environment Analysis Complete</div>
+  </div>
+
+  <!-- scene 7 core message (word-by-word reveal) -->
+  <div class="intro-coreword" data-cap="core" aria-label="AI Sees What Humans Miss">
+    <span class="cw-line"><span class="cw">AI</span> <span class="cw">Sees</span> <span class="cw">What</span></span>
+    <span class="cw-line"><span class="cw">Humans</span> <span class="cw last">Miss</span></span>
+  </div>
+</div>
+<div id="intro-white"></div>
+
+<!-- ===================== HERO INTRO ROBOT (Spline) ===================== -->
+<div id="robot-stage" data-screen-label="Hero Intro — Robot">
+  <div id="robot-glow"></div>
+  <div id="robot-particles"></div>
+  <div id="robot-scale">
+    <div id="robot-tilt">
+      <spline-viewer id="robotViewer" url="assets/robot-scene.splinecode" loading-anim-type="none"></spline-viewer>
+    </div>
+  </div>
+  <div id="robot-point"></div>
+  <div id="robot-text">
+    <div class="ri-welcome">Welcome, this is <span class="accent">VAR EXAM</span></div>
+    <div class="ri-sub">Proctoring Exam Platform</div>
+  </div>
+  <div id="robot-hint"><span>Scroll to begin</span><span class="rh-track"></span></div>
+  <div id="robot-logo-cover"></div>
+</div>
+
+<!-- Stage holds canvas atmosphere + chapter overlays -->
+<div id="stage">
+
+  <!-- ===================== CH 01 — THE AWAKENING ===================== -->
+  <section class="chapter" id="ch1" data-chapter="1" data-screen-label="Ch 01 — The Awakening">
+    <div class="chapter-inner">
+      <div class="wordmark" id="wordmark">
+        <span class="word" data-word="VAR"></span>
+        <span class="gap"></span>
+        <span class="word" data-word="EXAM"></span>
+      </div>
+      <div class="sub-tag fx">AI-Powered Examination &amp; Proctoring</div>
+      <h1 class="h1 fx">Secure Every Assessment.<br /><span class="accent">Trust Every Result.</span></h1>
+      <div class="cta-row fx">
+        <button class="btn" data-action="login">Request Demo
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M7 13l5-5M7 13l-5-5" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CH 02 — CREATE AN EXAM ===================== -->
+  <section class="chapter" id="ch2" data-chapter="2" data-screen-label="Ch 02 — Create an Exam">
+    <div class="chapter-inner">
+      <div class="copy">
+        <div class="eyebrow fx"><span class="num">02</span> Create</div>
+        <h2 class="headline fx">Create Powerful Exams in <span class="accent">Minutes</span></h2>
+        <p class="subhead fx">Flexible. Secure. Scalable.</p>
+        <div class="settings-strip">
+          <span class="set-chip fx">Timer</span>
+          <span class="set-chip fx">Question Bank</span>
+          <span class="set-chip fx">Randomization</span>
+          <span class="set-chip fx">Negative Marking</span>
+          <span class="set-chip fx">Difficulty Levels</span>
+          <span class="set-chip fx">Passing Score</span>
+          <span class="set-chip fx">AI Security</span>
+        </div>
+      </div>
+      <div class="engine">
+        <div class="qchips" id="qchips">
+          <span class="qchip key">Multiple Choice</span>
+          <span class="qchip key">True / False</span>
+          <span class="qchip">Essay</span>
+          <span class="qchip">Matching</span>
+          <span class="qchip">Ordering</span>
+          <span class="qchip">Fill Blank</span>
+          <span class="qchip">File Upload</span>
+          <span class="qchip key">Code</span>
+          <span class="qchip">Case Study</span>
+          <span class="qchip">Multi Select</span>
+          <span class="qchip">Hotspot</span>
+          <span class="qchip">Numeric</span>
+          <span class="qchip">Drag &amp; Drop</span>
+          <span class="qchip">Audio</span>
+          <span class="qchip">Diagram</span>
+          <span class="qchip">Short Answer</span>
+        </div>
+        <div class="engine-core fx">
+          <span class="lbl">Exam Engine</span>
+          <span class="val">16</span>
+          <span class="lbl">Question Types</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CH 04 — IDENTITY VERIFICATION ===================== -->
+  <section class="chapter" id="ch4" data-chapter="4" data-screen-label="Ch 04 — Identity Verification">
+    <div class="chapter-inner">
+      <div class="copy">
+        <div class="eyebrow fx"><span class="num">03</span> Verify</div>
+        <h2 class="headline fx">Verify Identity Before <span class="accent">Every Exam</span></h2>
+        <p class="subhead fx">Prevent impersonation with AI.</p>
+      </div>
+      <div class="verify-stage" id="verifyStage">
+        <div class="scan-panel">
+          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <div class="face-mesh" id="faceMesh"><div class="bio-tint"></div></div>
+        </div>
+        <div class="id-card glass">
+          <div class="id-head"><span>GOV ID</span><span>VERIFIED</span></div>
+          <div class="id-body">
+            <div class="id-photo"></div>
+            <div class="id-lines"><span class="l"></span><span class="l s"></span><span class="l"></span><span class="l s"></span></div>
+          </div>
+          <div class="match-readout"><span>Identity Match</span><span class="num-match">99.6%</span></div>
+          <div class="match-readout"><span>Liveness</span><span class="ok">✓ Passed</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CH 05 — SECURE EXAM ENTRY ===================== -->
+  <section class="chapter" id="ch5" data-chapter="5" data-screen-label="Ch 05 — Secure Exam Entry">
+    <div class="chapter-inner">
+      <div class="copy">
+        <div class="eyebrow fx"><span class="num">04</span> Secure Entry</div>
+        <h2 class="headline fx" id="entryHeadline">Securing the<br />Exam Environment</h2>
+        <p class="subhead fx" id="entrySub">Preparing the candidate before access is granted.</p>
+
+        <div class="entry-stage fx" id="entryStage">
+          <!-- step 1: face -->
+          <div class="estage" data-stage="face">
+            <div class="estage-vis fscan">
+              <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+              <div class="fhead"></div>
+              <div class="fmesh bioimg" id="entryFaceMesh"></div>
+            </div>
+            <div class="estage-cap">Face scan · matching identity</div>
+          </div>
+          <!-- step 2: camera -->
+          <div class="estage" data-stage="camera">
+            <div class="estage-vis ecam">
+              <div class="ecam-iris"><span></span></div>
+              <div class="ecam-rec"><span class="d"></span> CAM</div>
+            </div>
+            <div class="estage-cap">Camera permission · live feed</div>
+          </div>
+          <!-- step 3: mic -->
+          <div class="estage" data-stage="mic">
+            <div class="estage-vis emic">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="estage-cap">Microphone · audio check</div>
+          </div>
+          <!-- step 4: browser -->
+          <div class="estage" data-stage="browser">
+            <div class="estage-vis ebrowser">
+              <div class="elock"><span class="shackle"></span><span class="body"></span></div>
+            </div>
+            <div class="estage-cap">Browser locked · kiosk mode</div>
+          </div>
+          <!-- step 5: environment -->
+          <div class="estage" data-stage="env">
+            <div class="estage-vis eenv">
+              <div class="eenv-grid"></div>
+              <div class="eenv-sweep"></div>
+              <div class="eenv-blip b1"></div><div class="eenv-blip b2"></div>
+            </div>
+            <div class="estage-cap">Environment scan · surroundings clear</div>
+          </div>
+          <!-- final success (revealed when entry-stage gets .secured) -->
+          <div class="entry-secured">
+            <div class="success-check"><svg viewBox="0 0 32 32"><path d="M7 16.5l6 6L25 9" /></svg></div>
+            <div class="success-sub">Ready To Begin</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="entry-panel" id="checklist">
+        <div class="entry-rail"><span class="rail-fill" id="entryRailFill"></span></div>
+        <div class="entry-list">
+          <div class="entry-item" data-i="0">
+            <span class="ei-ico"><span class="ei-spin"></span><svg class="ei-check" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4" /></svg></span>
+            <span class="ei-label">Face Verification</span>
+            <span class="ei-status">Pending</span>
+          </div>
+          <div class="entry-item" data-i="1">
+            <span class="ei-ico"><span class="ei-spin"></span><svg class="ei-check" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4" /></svg></span>
+            <span class="ei-label">Camera Check</span>
+            <span class="ei-status">Pending</span>
+          </div>
+          <div class="entry-item" data-i="2">
+            <span class="ei-ico"><span class="ei-spin"></span><svg class="ei-check" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4" /></svg></span>
+            <span class="ei-label">Microphone Check</span>
+            <span class="ei-status">Pending</span>
+          </div>
+          <div class="entry-item" data-i="3">
+            <span class="ei-ico"><span class="ei-spin"></span><svg class="ei-check" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4" /></svg></span>
+            <span class="ei-label">Browser Lock</span>
+            <span class="ei-status">Pending</span>
+          </div>
+          <div class="entry-item" data-i="4">
+            <span class="ei-ico"><span class="ei-spin"></span><svg class="ei-check" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4" /></svg></span>
+            <span class="ei-label">Environment Scan</span>
+            <span class="ei-status">Pending</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CH 06 — AI PROCTORING (HERO) ===================== -->
+  <section class="chapter" id="ch6" data-chapter="6" data-screen-label="Ch 06 — AI Proctoring">
+    <div class="chapter-inner">
+      <div class="proctor-top">
+        <div class="eyebrow fx"><span class="num">05</span> AI Proctoring</div>
+        <h2 class="headline fx">AI Watches. <span class="accent">AI Detects.</span> <span class="gold">AI Protects.</span></h2>
+      </div>
+      <div class="proctor-grid">
+        <!-- monitoring modules -->
+        <div class="monitor-stack" id="monitorStack">
+          <div class="mon-module glass" data-mon="camera"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="1"/><path d="M16 10l5-3v10l-5-3z"/></svg></span> Camera <span class="live"></span></div>
+          <div class="mon-module glass" data-mon="audio"><span class="ico"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span> Audio <span class="live"></span></div>
+          <div class="mon-module glass" data-mon="eye"><span class="ico"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span> Eye Tracking <span class="live"></span></div>
+          <div class="mon-module glass" data-mon="face"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><circle cx="12" cy="12" r="3"/></svg></span> Face Recognition <span class="live"></span></div>
+          <div class="mon-module glass" data-mon="browser"><span class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16M9 13h6"/></svg></span> Browser Lock <span class="live"></span></div>
+          <div class="mon-module glass" data-mon="behavior"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 13l4-4 4 4 4-7 6 9"/></svg></span> Behavior Analysis <span class="live"></span></div>
+        </div>
+
+        <!-- webcam feed -->
+        <div class="feed" id="feed">
+          <div class="feed-bar">
+            <span class="rec"><span class="d"></span> REC</span>
+            <span class="ai-tag">AI PROCTOR · LIVE</span>
+            <span class="timer" id="feedTimer">00:00</span>
+          </div>
+          <div class="subject" id="subject"></div>
+          <div class="track-mesh" id="trackMesh"></div>
+          <div class="intruder" id="intruder"></div>
+          <div class="phone-obj" id="phoneObj"></div>
+
+          <!-- overlays -->
+          <div class="gaze" id="gaze"><span class="arrow">→</span></div>
+          <div class="audio-wave" id="audioWave"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="bbox intruder-box" id="intruderBox" data-label="Multiple Persons Detected"></div>
+          <div class="bbox gold phone-box" id="phoneBox" data-label="Unauthorized Device"></div>
+
+          <div class="scanlines"></div>
+          <div class="vignette"></div>
+          <div class="feed-banner">
+            <span class="grow">Continuous Camera Monitoring · Powered by AI</span>
+            <span class="tags">
+              <span>Camera</span><span>Mic</span><span>Eye</span><span>Face</span><span>Behavior</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- alert log + integrity -->
+        <div class="proctor-side">
+          <div class="integrity glass">
+            <div class="lbl">Integrity Score</div>
+            <div class="ring">
+              <svg width="120" height="120" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>
+                <circle id="integrityArc" cx="60" cy="60" r="52" fill="none" stroke="#00ffff" stroke-width="6" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="0"/>
+              </svg>
+              <div class="val"><span class="n" id="integrityNum">100</span><span class="u">Live</span></div>
+            </div>
+          </div>
+          <div class="log glass">
+            <div class="log-head"><span>Detection Log</span><span class="count" id="logCount">0</span></div>
+            <div class="log-items" id="logItems"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== CH 07 — INTEGRITY REPORT ===================== -->
+  <section class="chapter" id="ch7" data-chapter="7" data-screen-label="Ch 06 — Integrity Report">
+    <div class="chapter-inner">
+      <div class="report-top">
+        <div class="eyebrow fx"><span class="num">06</span> Integrity Report</div>
+        <div class="report-heads">
+          <h2 class="headline fx">Every Decision Backed By <span class="accent">Evidence</span></h2>
+          <p class="subhead fx">Automated integrity reports in seconds.</p>
+        </div>
+      </div>
+
+      <div class="report-grid">
+        <!-- LEFT: big integrity score gauge -->
+        <div class="report-score glass">
+          <div class="rs-lbl">Integrity Score</div>
+          <div class="rs-ring">
+            <svg width="220" height="220" viewBox="0 0 220 220">
+              <circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="9"/>
+              <g id="reportTicks" stroke="rgba(255,255,255,0.18)" stroke-width="2"></g>
+              <line x1="110" y1="10" x2="110" y2="26" stroke="#3fd6a8" stroke-width="3" stroke-linecap="round"/>
+              <circle id="reportArc" cx="110" cy="110" r="92" fill="none" stroke="#3fd6a8" stroke-width="9" stroke-linecap="round" stroke-dasharray="578.1" stroke-dashoffset="578.1" transform="rotate(-90 110 110)"/>
+            </svg>
+            <div class="rs-val"><span class="rs-n" id="reportNum">0</span><span class="rs-out">/ 100</span></div>
+          </div>
+          <div class="rs-grade" id="reportGrade">Verified · Low Risk</div>
+          <div class="rs-spark">
+            <div class="rs-spark-lbl">AI Confidence · live trend</div>
+            <svg viewBox="0 0 220 46" preserveAspectRatio="none">
+              <polyline id="sparkLine" points="0,36 24,32 48,34 72,22 96,26 120,14 150,18 180,9 220,12" fill="none" stroke="#3fd6a8" stroke-width="2" vector-effect="non-scaling-stroke" stroke-dasharray="320" stroke-dashoffset="320"/>
+              <circle r="3" fill="#fff">
+                <animateMotion dur="3.2s" repeatCount="indefinite" path="M0,36 L24,32 L48,34 L72,22 L96,26 L120,14 L150,18 L180,9 L220,12"/>
+              </circle>
+            </svg>
+          </div>
+        </div>
+
+        <!-- RIGHT: verdict + compact checks + timeline -->
+        <div class="report-main">
+          <div class="report-verdict glass" id="verdictBanner">
+            <span class="rv-ic"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4"/></svg></span>
+            <span class="rv-txt"><b>Result: Verified</b> — 2 low-severity flags, no critical violations.</span>
+          </div>
+
+          <div class="report-checks">
+            <div class="rcheck" data-rc="0"><span class="rc-ic"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4"/></svg></span><span class="rc-txt">Identity Verified</span><span class="rc-meta">99.6%</span></div>
+            <div class="rcheck" data-rc="1"><span class="rc-ic"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4"/></svg></span><span class="rc-txt">No Device Violations</span><span class="rc-meta">Clean</span></div>
+            <div class="rcheck" data-rc="2"><span class="rc-ic"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4"/></svg></span><span class="rc-txt">No Tab Switching</span><span class="rc-meta">0 events</span></div>
+            <div class="rcheck" data-rc="3"><span class="rc-ic"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5L13 4"/></svg></span><span class="rc-txt">AI Confidence</span><span class="rc-meta">97.4%</span></div>
+          </div>
+
+          <div class="report-timeline glass">
+            <div class="rt-head"><span>Violation Timeline</span><span class="rt-dur">00:00 — 47:00</span></div>
+            <div class="rt-track">
+              <span class="rt-axis"></span>
+              <span class="rt-scan"></span>
+              <span class="rt-mark warn" style="left:14%;" data-rt="0" tabindex="0"><b class="rt-stem"></b><i></i><em>Gaze off-screen · 08:24</em></span>
+              <span class="rt-mark warn" style="left:48%;" data-rt="1" tabindex="0"><b class="rt-stem"></b><i></i><em>Voice detected · 18:10</em></span>
+            </div>
+            <div class="rt-times"><span>00:00</span><span>11:45</span><span>23:30</span><span>35:15</span><span>47:00</span></div>
+            <div class="rt-legend">
+              <span><i class="warn"></i> Flagged</span>
+              <span><i class="crit"></i> Critical</span>
+              <span class="rt-ev"><span class="rt-film"><i></i><i></i><i></i></span> Video evidence attached</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CH 09 — FINAL CTA ===================== -->
+  <section class="chapter" id="ch9" data-chapter="9" data-screen-label="Ch 07 — Final CTA">
+    <div class="chapter-inner">
+      <div class="final-wrap">
+        <div class="final-mark" id="finalMark">
+          <span class="word" data-fword="VAR"></span>
+          <span class="fgap"></span>
+          <span class="word" data-fword="EXAM"></span>
+        </div>
+        <h2 class="final-head fx">Where trust meets <span class="accent">technology.</span></h2>
+        <div class="final-stats fx">99.6% identity accuracy<i></i>7-layer monitoring<i></i>Reports in seconds</div>
+        <div class="final-cta fx">
+          <button class="btn">Contact Us
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M11 7l-4-4M11 7l-4 4" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /stage -->
+
+<!-- atmosphere -->
+<div id="grain"></div>
+
+<!-- persistent chrome -->
+<div id="chrome">
+  <div class="brand-mark"><span class="dot"></span> VAR EXAM</div>
+  <button class="contact-cta demo-cta" id="demoCta" type="button" data-action="login">
+    <svg class="cc-trace" viewBox="0 0 160 44" preserveAspectRatio="none" aria-hidden="true"><rect x="1" y="1" width="158" height="42" rx="2" pathLength="100"/></svg>
+    <span class="cc-tx">Request Demo</span>
+  </button>
+  <button class="contact-cta" id="contactCta" type="button">
+    <svg class="cc-trace" viewBox="0 0 160 44" preserveAspectRatio="none" aria-hidden="true"><rect x="1" y="1" width="158" height="42" rx="2" pathLength="100"/></svg>
+    <span class="cc-tx">Contact Us</span>
+  </button>
+  <div class="scroll-hint" id="scrollHint"><span>Scroll to begin</span><span class="track"></span></div>
+</div>
+<div id="progress-rail">
+  <div class="rail-node" data-r="1"><span class="rail-dot"></span><span class="rail-label">Awakening</span></div>
+  <div class="rail-node" data-r="2"><span class="rail-dot"></span><span class="rail-label">Create</span></div>
+  <div class="rail-node" data-r="3"><span class="rail-dot"></span><span class="rail-label">Verify</span></div>
+  <div class="rail-node" data-r="4"><span class="rail-dot"></span><span class="rail-label">Secure Entry</span></div>
+  <div class="rail-node" data-r="5"><span class="rail-dot"></span><span class="rail-label">AI Proctoring</span></div>
+  <div class="rail-node" data-r="6"><span class="rail-dot"></span><span class="rail-label">Integrity Report</span></div>
+  <div class="rail-node" data-r="7"><span class="rail-dot"></span><span class="rail-label">Final</span></div>
+</div>
+
+<!-- scroll length -->
+<div id="scroll-spacer"></div>
+
+<!-- libs -->
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://unpkg.com/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+
+<!-- app -->
+<script type="module" src="https://unpkg.com/@splinetool/viewer/build/spline-viewer.js"></script>
+<script src="js/facemesh.js?b=5"></script>
+<script src="js/tunnel.js?b=12"></script>
+<script src="js/proctoring.js?b=16"></script>
+<script src="js/ch5.js?b=7"></script>
+<script src="js/report4.js"></script>
+<script src="js/intro.js?b=29"></script>
+<script src="js/robot.js?b=5"></script>
+<script src="js/journey.js?b=24"></script>
+
+<!-- SYRA: route landing CTAs into the app login -->
+<script>
+  (function () {
+    function goToLogin(e) {
+      if (e) e.preventDefault();
+      var target = '/login';
+      try {
+        // navigate the top window when embedded in the SPA via iframe
+        (window.top || window).location.href = target;
+      } catch (err) {
+        window.location.href = target;
+      }
+    }
+    document.querySelectorAll('[data-action="login"]').forEach(function (b) {
+      b.addEventListener('click', goToLogin);
+    });
+  })();
+</script>
+</body>
+</html>

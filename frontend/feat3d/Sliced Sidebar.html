@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VAR EXAM — Sliced Sidebar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #050709;
+    --panel: #0a0e12;
+    --cyan: #00eaff;
+    --green: #3fd6a8;
+    --line: rgba(255, 255, 255, 0.08);
+    --slice: var(--bg); /* slice colour = page background so the cut "reveals" the bg */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgba(0, 234, 255, 0.06), transparent 55%),
+      var(--bg);
+    color: #fff;
+    font-family: "Space Mono", ui-monospace, monospace;
+    min-height: 100vh;
+  }
+
+  /* ============================================================
+     SLICED TEXT EFFECT
+     Two stacked copies of the same text. The top copy is clipped
+     to show only ABOVE the centre line; the bottom copy only
+     BELOW it. A thin transparent gap between them is the "slice".
+     We shift the halves apart by a couple px so the cut reads as
+     a sharp horizontal razor running through the glyphs.
+     ============================================================ */
+  .sliced {
+    position: relative;
+    display: inline-block;
+    font-family: "Syncopate", sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    color: #fff;
+  }
+  /* the razor "cut": a thin bar in the page-background colour drawn straight
+     through the vertical centre of the glyphs, so the letters look sliced. */
+  .sliced::after {
+    content: "";
+    position: absolute;
+    left: -4px; right: -4px;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    background: var(--slice);
+    transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.4s ease;
+    pointer-events: none;
+    z-index: 2;
+  }
+  /* hover/active: widen the cut + neon glint along its edges */
+  .nav-item:hover .sliced::after,
+  .nav-item.active .sliced::after {
+    height: 3px;
+    box-shadow: 0 -1px 0 0 var(--cyan), 0 1px 0 0 var(--cyan),
+                0 0 10px rgba(0, 234, 255, 0.7);
+  }
+  .nav-item:hover .sliced,
+  .nav-item.active .sliced { color: var(--cyan); }
+
+  /* a literal razor line that glints across the slice on hover/active */
+  .slice-line {
+    position: absolute;
+    left: -6px; right: -6px;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%) scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+    box-shadow: 0 0 8px var(--cyan);
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .nav-item:hover .slice-line,
+  .nav-item.active .slice-line { transform: translateY(-50%) scaleX(1); }
+
+  /* active rail accent */
+  .nav-item { position: relative; }
+  .nav-item::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 50%;
+    width: 2px; height: 0;
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan);
+    transform: translateY(-50%);
+    transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .nav-item.active::before,
+  .nav-item:hover::before { height: 60%; }
+
+  .scanline {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px);
+    pointer-events: none; opacity: 0.6;
+  }
+</style>
+</head>
+<body class="antialiased">
+
+<div class="flex min-h-screen">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="relative w-[280px] shrink-0 border-r border-white/10 bg-[#0a0e12] flex flex-col">
+    <div class="scanline"></div>
+
+    <!-- brand -->
+    <div class="relative px-7 pt-8 pb-7 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <span class="inline-block w-2 h-2 rounded-full bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan)]"></span>
+        <span class="text-[11px] tracking-[0.42em] text-white/55">VAR EXAM</span>
+      </div>
+      <h1 class="sliced mt-5 text-[26px]" data-text="CONTROL">CONTROL
+        <span class="slice-line"></span>
+      </h1>
+    </div>
+
+    <!-- nav -->
+    <nav class="relative flex-1 py-6">
+      <div class="px-7 mb-3 text-[9px] tracking-[0.3em] text-white/30">NAVIGATION</div>
+
+      <a href="#" class="nav-item active flex items-center gap-4 px-7 py-4">
+        <svg class="w-4 h-4 text-[var(--cyan)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <h2 class="sliced text-[15px]" data-text="OVERVIEW">OVERVIEW<span class="slice-line"></span></h2>
+      </a>
+
+      <a href="#" class="nav-item flex items-center gap-4 px-7 py-4">
+        <svg class="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <h2 class="sliced text-[15px]" data-text="EXAMS">EXAMS<span class="slice-line"></span></h2>
+      </a>
+
+      <a href="#" class="nav-item flex items-center gap-4 px-7 py-4">
+        <svg class="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        <h2 class="sliced text-[15px]" data-text="PROCTOR">PROCTOR<span class="slice-line"></span></h2>
+      </a>
+
+      <a href="#" class="nav-item flex items-center gap-4 px-7 py-4">
+        <svg class="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 17v-6M12 17V7M15 17v-3M3 3v18h18"/></svg>
+        <h2 class="sliced text-[15px]" data-text="REPORTS">REPORTS<span class="slice-line"></span></h2>
+      </a>
+
+      <a href="#" class="nav-item flex items-center gap-4 px-7 py-4">
+        <svg class="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <h2 class="sliced text-[15px]" data-text="SETTINGS">SETTINGS<span class="slice-line"></span></h2>
+      </a>
+    </nav>
+
+    <!-- footer / user -->
+    <div class="relative px-7 py-6 border-t border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--green)] to-[var(--cyan)] flex items-center justify-center text-[#04110e] font-bold text-sm">A</div>
+        <div class="min-w-0">
+          <div class="text-xs text-white truncate">Amara Okonkwo</div>
+          <div class="text-[10px] tracking-[0.14em] text-white/40">ADMIN</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== STAGE (context only) ===================== -->
+  <main class="flex-1 p-12">
+    <h2 class="sliced text-[40px]" data-text="DASHBOARD">DASHBOARD<span class="slice-line"></span></h2>
+    <p class="mt-6 max-w-md text-sm leading-relaxed text-white/45">
+      Hover the navigation items — the razor slice widens and a cyan glint runs
+      through the centre line of each title.
+    </p>
+  </main>
+</div>
+
+</body>
+</html>
