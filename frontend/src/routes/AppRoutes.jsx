@@ -27,6 +27,7 @@ function lazyPage(importer, options = {}) {
 }
 
 const Login = lazyPage(() => import('../pages/Login/Login'), { fullPage: true, labelKey: 'loading_sign_in' })
+const Landing = lazyPage(() => import('../pages/Landing/Landing'), { fullPage: true, labelKey: 'loading' })
 const Home = lazyPage(() => import('../pages/Home/Home'), { labelKey: 'loading_dashboard' })
 const Exams = lazyPage(() => import('../pages/Exams/Exams'), { labelKey: 'loading_tests' })
 const ExamInstructions = lazyPage(() => import('../pages/ExamInstructions/ExamInstructions'), { labelKey: 'loading_instructions' })
@@ -119,9 +120,12 @@ function RequireLogin({ children }) {
 
   if (loading) return <Loader fullPage label={t('loading_authenticating')} />
   if (!user) {
+    // Guests opening the site root see the marketing landing first; any other
+    // protected deep-link still goes straight to login.
+    const target = location.pathname === '/' ? '/welcome' : '/login'
     return (
       <Navigate
-        to="/login"
+        to={target}
         replace
         state={{ from: `${location.pathname}${location.search}${location.hash}` }}
       />
@@ -369,6 +373,7 @@ function HomeRoute() {
 
 const router = createBrowserRouter(
   [
+    { path: '/welcome', element: <ErrorBoundary><Landing /></ErrorBoundary> },
     { path: '/login', element: <ErrorBoundary><Login /></ErrorBoundary> },
     { path: '/signup', element: <ErrorBoundary><SignUp /></ErrorBoundary> },
     { path: '/forgot-password', element: <ErrorBoundary><ForgotPassword /></ErrorBoundary> },

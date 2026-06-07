@@ -1,0 +1,12 @@
+# Pull and run the pre-built image on the server.
+#   1. Create a .env file next to this one with: DOCKER_USERNAME=your_dockerhub_user
+#   2. docker compose pull   # fetch the latest image from Docker Hub
+#   3. docker compose up -d   # start the container
+services:
+  var-exam:
+    image: ${DOCKER_USERNAME}/var-exam:feat-3d
+    container_name: var-exam
+    ports:
+      - "4010:80"          # host:container — site reachable at http://SERVER_IP:4010
+    restart: unless-stopped
+    pull_policy: always
