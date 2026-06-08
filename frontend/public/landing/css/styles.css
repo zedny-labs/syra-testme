@@ -1271,6 +1271,10 @@ body {
 #intro-scene {
   position: fixed; inset: 0; z-index: 2; display: block;
   width: 100%; height: 100%;
+  /* Purely a background WebGL layer — must never intercept clicks meant for
+     the hero CTA (Request Demo) that sits above it. Its only input listener is
+     a pointermove on window, which is unaffected by this. */
+  pointer-events: none;
 }
 #intro-overlay {
   position: fixed; inset: 0; z-index: 6; pointer-events: none;
