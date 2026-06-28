@@ -101,3 +101,19 @@ def test_bulk_create_empty_list_returns_400() -> None:
         assert exc.value.status_code == 400
     finally:
         db.close()
+
+
+def test_bulk_create_over_max_returns_400() -> None:
+    from app.api.routes.question_pools import MAX_BULK_QUESTIONS
+
+    db = _new_session()
+    try:
+        admin = _create_user(db)
+        pool = _create_pool(db, admin)
+        body = BulkQuestionsCreate(questions=[_mcq(f"Q{i}") for i in range(MAX_BULK_QUESTIONS + 1)])
+
+        with pytest.raises(HTTPException) as exc:
+            bulk_create_pool_questions(pool_id=str(pool.id), body=body, db=db, current=admin)
+        assert exc.value.status_code == 400
+    finally:
+        db.close()

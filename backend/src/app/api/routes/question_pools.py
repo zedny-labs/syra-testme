@@ -380,14 +380,13 @@ def bulk_create_pool_questions(
     if pool.created_by_id != current.id:
         raise HTTPException(status_code=403, detail=_t("not_allowed"))
     if not body.questions:
-        raise HTTPException(status_code=400, detail=_t("pool_no_questions"))
+        raise HTTPException(status_code=400, detail=_t("pool_bulk_empty"))
     if len(body.questions) > MAX_BULK_QUESTIONS:
         raise HTTPException(status_code=400, detail=_t("pool_bulk_too_many", max=MAX_BULK_QUESTIONS))
 
     library_exam = _ensure_pool_library_exam(db, current, pool)
     next_order = db.scalar(select(func.max(Question.order)).where(Question.pool_id == pool_pk)) or 0
     now = datetime.now(timezone.utc)
-    created = 0
     for item in body.questions:
         payload = sanitize_question_payload(item.model_dump())
         next_order += 1
@@ -404,9 +403,8 @@ def bulk_create_pool_questions(
             updated_at=now,
         )
         db.add(question)
-        created += 1
     db.commit()
-    return BulkQuestionsResult(created=created)
+    return BulkQuestionsResult(created=len(body.questions))
 
 
 @router.put("/{pool_id}/questions/{question_id}", response_model=QuestionRead)
