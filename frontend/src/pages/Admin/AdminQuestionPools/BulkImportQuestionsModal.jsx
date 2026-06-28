@@ -56,6 +56,7 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
     } catch (err) {
       setMapped([])
       setError(t('admin_pools_import_parse_error'))
+      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -73,6 +74,7 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
     if (!canImport) return
     setImporting(true)
     setError('')
+    let createdNewPoolName = ''
     try {
       let poolId = existingPoolId
       let poolName = pools.find((pool) => String(pool.id) === String(existingPoolId))?.name || ''
@@ -80,11 +82,18 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
         const { data } = await adminApi.createQuestionPool({ name: name.trim(), description: description.trim() || null })
         poolId = data.id
         poolName = data.name
+        createdNewPoolName = data.name
       }
       const { data } = await adminApi.bulkCreatePoolQuestions(poolId, validRows.map((row) => row.payload))
       onImported(t('admin_pools_import_done', { count: data.created, pool: poolName }))
     } catch (err) {
-      setError(resolveError(err, t('admin_pools_import_parse_error')))
+      // If the new pool was created but the questions failed, it now exists empty —
+      // tell the user so they can retry against it via "Existing pool" instead of duplicating it.
+      if (createdNewPoolName) {
+        setError(t('admin_pools_import_partial', { pool: createdNewPoolName }))
+      } else {
+        setError(resolveError(err, t('admin_pools_import_parse_error')))
+      }
     } finally {
       setImporting(false)
     }

@@ -2811,6 +2811,7 @@
   "admin_pools_import_submit": "Import {count} questions",
   "admin_pools_import_importing": "Importing…",
   "admin_pools_import_done": "Imported {count} questions into {pool}",
+  "admin_pools_import_partial": "Pool '{pool}' was created but importing its questions failed. Select it under 'Existing pool' and try again.",
   "admin_pools_import_row_error": "Row {row}: {reason}",
   "admin_pools_import_err_missing_text": "Question text is required",
   "admin_pools_import_err_unknown_type": "Unknown question type",
