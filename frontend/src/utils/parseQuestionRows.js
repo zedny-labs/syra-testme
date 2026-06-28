@@ -11,7 +11,7 @@ const TYPE_ALIASES = {
 }
 
 function normalizeType(raw) {
-  const key = String(raw || '').trim().toUpperCase().replace(/[\s/-]+/g, '_')
+  const key = String(raw || '').trim().toUpperCase().replace(/[-\s/]+/g, '_')
   if (TYPE_ALIASES[key]) return TYPE_ALIASES[key]
   const compact = key.replace(/_/g, '')
   if (VALID_TYPES.has(compact)) return compact

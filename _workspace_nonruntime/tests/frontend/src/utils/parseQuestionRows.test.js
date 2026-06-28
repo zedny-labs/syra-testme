@@ -83,6 +83,21 @@ describe('mapRecordToQuestion', () => {
       .toEqual({ error: 'matching_pair_format' })
   })
 
+  it('flags ORDERING with fewer than 2 options', () => {
+    expect(mapRecordToQuestion({ text: 'Q', type: 'ORDERING', options: 'only_one' }))
+      .toEqual({ error: 'ordering_need_2' })
+  })
+
+  it('flags FILLINBLANK with no options', () => {
+    expect(mapRecordToQuestion({ text: 'Q', type: 'FILLINBLANK', options: '' }))
+      .toEqual({ error: 'fillinblank_need_1' })
+  })
+
+  it('flags MATCHING with no pairs', () => {
+    expect(mapRecordToQuestion({ text: 'Q', type: 'MATCHING', options: '' }))
+      .toEqual({ error: 'matching_need_1' })
+  })
+
   it('defaults invalid points to 1', () => {
     expect(mapRecordToQuestion({ text: 'Q', type: 'TEXT', points: 'abc' }).payload.points).toBe(1)
   })
@@ -105,5 +120,11 @@ describe('templateMatrix', () => {
     expect(matrix[0]).toEqual(['text', 'type', 'options', 'correct_answer', 'points'])
     const types = matrix.slice(1).map((row) => row[1])
     expect(types).toEqual(['MCQ', 'MULTI', 'TRUEFALSE', 'TEXT', 'ORDERING', 'FILLINBLANK', 'MATCHING'])
+  })
+
+  it('produces 7 valid payloads when round-tripped through the parser', () => {
+    const results = mapRecords(rowsToRecords(templateMatrix()))
+    expect(results).toHaveLength(7)
+    expect(results.every((result) => result.payload)).toBe(true)
   })
 })
