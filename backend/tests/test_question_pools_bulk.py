@@ -61,6 +61,29 @@ def test_bulk_create_inserts_all_questions() -> None:
         db.close()
 
 
+def test_bulk_create_accepts_multi_with_multiple_answers() -> None:
+    db = _new_session()
+    try:
+        admin = _create_user(db)
+        pool = _create_pool(db, admin)
+        multi = QuestionBase(
+            text="Pick the primes",
+            question_type="MULTI",
+            options=["2", "3", "4"],
+            correct_answer="2,3",
+            points=1,
+        )
+        body = BulkQuestionsCreate(questions=[multi])
+
+        result = bulk_create_pool_questions(pool_id=str(pool.id), body=body, db=db, current=admin)
+
+        assert result.created == 1
+        stored = list_pool_questions(pool_id=str(pool.id), db=db, current=admin)
+        assert stored[0].correct_answer == "2,3"
+    finally:
+        db.close()
+
+
 def test_bulk_create_rejects_non_owner() -> None:
     db = _new_session()
     try:

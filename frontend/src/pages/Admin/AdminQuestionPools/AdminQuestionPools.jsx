@@ -340,7 +340,10 @@ export default function AdminQuestionPools() {
       {bulkModal && (
         <BulkImportQuestionsModal
           pools={pools}
-          onClose={() => setBulkModal(false)}
+          onClose={() => {
+            setBulkModal(false)
+            void load()
+          }}
           onImported={(message) => {
             setBulkModal(false)
             setNotice(message)
