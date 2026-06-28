@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { adminApi } from '../../../services/admin.service'
 import useLanguage from '../../../hooks/useLanguage'
-import { mapRecords, rowsToRecords, templateMatrix } from '../../../utils/parseQuestionRows'
+import { mapRecords, rowsToRecords, templateInstructions, templateMatrix } from '../../../utils/parseQuestionRows'
 import styles from './AdminQuestionPools.module.scss'
 
 function resolveError(err, fallback) {
@@ -48,7 +48,8 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
     try {
       const buffer = await file.arrayBuffer()
       const workbook = XLSX.read(buffer, { type: 'array' })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const sheetName = workbook.SheetNames.find((sheetTitle) => sheetTitle.toLowerCase() === 'questions') || workbook.SheetNames[0]
+      const sheet = workbook.Sheets[sheetName]
       const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', blankrows: false, raw: false })
       const rows = mapRecords(rowsToRecords(matrix))
       setMapped(rows)
@@ -61,9 +62,9 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
   }
 
   const downloadTemplate = () => {
-    const sheet = XLSX.utils.aoa_to_sheet(templateMatrix())
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, sheet, 'Questions')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateInstructions()), 'Instructions')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateMatrix()), 'Questions')
     XLSX.writeFile(workbook, 'question-import-template.xlsx')
   }
 

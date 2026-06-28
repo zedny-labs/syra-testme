@@ -109,3 +109,31 @@ export function templateMatrix() {
     ['Match each country to its capital.', 'MATCHING', 'France | Paris\nEgypt | Cairo', 'A-1,B-2', '1'],
   ]
 }
+
+// Human-readable guidance for the "Instructions" sheet of the downloadable template
+// (array-of-arrays). This sheet is informational only — the importer reads the "Questions" sheet.
+export function templateInstructions() {
+  return [
+    ['How to use this template'],
+    [''],
+    ['1. Fill the "Questions" sheet — one question per row. Keep the header row.'],
+    ['2. For multiple values in one cell (options, acceptable answers, pairs), put each value on its own line (Alt+Enter inside the cell).'],
+    ['3. Save the file and upload it via "Import Questions".'],
+    [''],
+    ['Column', 'Required', 'Notes'],
+    ['text', 'Yes', 'The question text.'],
+    ['type', 'Yes', 'One of: MCQ, MULTI, TRUEFALSE, TEXT, ORDERING, FILLINBLANK, MATCHING.'],
+    ['options', 'Depends on type', 'MCQ/MULTI: choices (one per line). TRUEFALSE: leave blank. ORDERING: items in correct order. FILLINBLANK: acceptable answers. MATCHING: "Left | Right" per line.'],
+    ['correct_answer', 'Depends on type', 'MCQ: the correct option text. MULTI: comma-separated correct option texts. TRUEFALSE: True or False. TEXT: model answer (optional). ORDERING & FILLINBLANK: leave blank. MATCHING: e.g. A-1,B-2.'],
+    ['points', 'No', 'Number greater than 0. Defaults to 1 when blank.'],
+    [''],
+    ['Type', 'Example options (one per line)', 'Example correct_answer'],
+    ['MCQ', '3 / 4 / 5 / 6', '4'],
+    ['MULTI', '2 / 3 / 4 / 6', '2,3'],
+    ['TRUEFALSE', '(leave blank)', 'True'],
+    ['TEXT', '(leave blank)', 'Conversion of light into energy (optional)'],
+    ['ORDERING', 'Mercury / Venus / Earth / Mars', '(leave blank)'],
+    ['FILLINBLANK', 'Paris / paris', '(leave blank)'],
+    ['MATCHING', 'France | Paris / Egypt | Cairo', 'A-1,B-2'],
+  ]
+}

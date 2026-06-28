@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { mapRecordToQuestion, mapRecords, rowsToRecords, templateMatrix } from './parseQuestionRows'
+import { mapRecordToQuestion, mapRecords, rowsToRecords, templateInstructions, templateMatrix } from './parseQuestionRows'
 
 describe('rowsToRecords', () => {
   it('maps a header row to lowercased keys and skips blank rows', () => {
@@ -126,5 +126,17 @@ describe('templateMatrix', () => {
     const results = mapRecords(rowsToRecords(templateMatrix()))
     expect(results).toHaveLength(7)
     expect(results.every((result) => result.payload)).toBe(true)
+  })
+})
+
+describe('templateInstructions', () => {
+  it('returns a non-empty guidance sheet mentioning every question type', () => {
+    const matrix = templateInstructions()
+    expect(Array.isArray(matrix)).toBe(true)
+    expect(matrix.length).toBeGreaterThan(0)
+    const flat = matrix.flat().join(' ')
+    for (const type of ['MCQ', 'MULTI', 'TRUEFALSE', 'TEXT', 'ORDERING', 'FILLINBLANK', 'MATCHING']) {
+      expect(flat).toContain(type)
+    }
   })
 })
