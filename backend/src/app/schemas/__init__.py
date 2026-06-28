@@ -312,6 +312,14 @@ class QuestionBase(BaseModel):
         return self
 
 
+class BulkQuestionsCreate(BaseModel):
+    questions: list[QuestionBase]
+
+
+class BulkQuestionsResult(BaseModel):
+    created: int
+
+
 class QuestionCreate(QuestionBase):
     exam_id: UUID
 
