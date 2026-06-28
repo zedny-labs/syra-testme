@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminApi } from '../../../services/admin.service'
 import AdminPageHeader from '../AdminPageHeader/AdminPageHeader'
-import BulkImportQuestionsModal from './BulkImportQuestionsModal'
 import useAuth from '../../../hooks/useAuth'
 import useLanguage from '../../../hooks/useLanguage'
 import styles from './AdminQuestionPools.module.scss'
@@ -26,7 +25,6 @@ export default function AdminQuestionPools() {
   const [poolQuestions, setPoolQuestions] = useState({})
   const [expandLoadingId, setExpandLoadingId] = useState(null)
   const [modal, setModal] = useState(false)
-  const [bulkModal, setBulkModal] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [modalError, setModalError] = useState('')
@@ -168,13 +166,6 @@ export default function AdminQuestionPools() {
   return (
     <div className={styles.page}>
       <AdminPageHeader title={t('admin_pools_title')} subtitle={t('admin_pools_subtitle')}>
-        <button
-          type="button"
-          className={styles.btnSecondary}
-          onClick={() => setBulkModal(true)}
-        >
-          {t('admin_pools_import_questions')}
-        </button>
         <button
           type="button"
           className={styles.btnPrimary}
@@ -335,21 +326,6 @@ export default function AdminQuestionPools() {
             </div>
           </div>
         </div>
-      )}
-
-      {bulkModal && (
-        <BulkImportQuestionsModal
-          pools={pools}
-          onClose={() => {
-            setBulkModal(false)
-            void load()
-          }}
-          onImported={(message) => {
-            setBulkModal(false)
-            setNotice(message)
-            void load()
-          }}
-        />
       )}
     </div>
   )

@@ -299,14 +299,7 @@ class QuestionBase(BaseModel):
             if not correct:
                 raise ValueError("MCQ requires a correct_answer")
             valid_letters = {chr(65 + i) for i in range(len(options))}
-            # MULTI allows several correct answers encoded as a comma-separated list,
-            # matching how the grader parses correct_answer for MULTI questions.
-            tokens = (
-                [token.strip() for token in correct.split(",") if token.strip()]
-                if q_type == ExamType.MULTI
-                else [correct]
-            )
-            if not tokens or any(token not in valid_letters and token not in options for token in tokens):
+            if correct not in valid_letters and correct not in options:
                 raise ValueError("correct_answer must be a choice letter (A, B, ...) or option value")
         return values
 
@@ -317,14 +310,6 @@ class QuestionBase(BaseModel):
         if data.get("options") != self.options:
             self.options = data["options"]
         return self
-
-
-class BulkQuestionsCreate(BaseModel):
-    questions: list[QuestionBase]
-
-
-class BulkQuestionsResult(BaseModel):
-    created: int
 
 
 class QuestionCreate(QuestionBase):

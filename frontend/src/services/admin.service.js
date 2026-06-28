@@ -42,7 +42,6 @@ export const adminApi = {
   updateQuestionPool: (id, data) => api.put(`question-pools/${id}`, data),
   getPoolQuestions: (poolId) => api.get(`question-pools/${poolId}/questions`),
   createPoolQuestion: (poolId, data) => api.post(`question-pools/${poolId}/questions`, data),
-  bulkCreatePoolQuestions: (poolId, questions) => api.post(`question-pools/${poolId}/questions/bulk`, { questions }),
   updatePoolQuestion: (poolId, questionId, data) => api.put(`question-pools/${poolId}/questions/${questionId}`, data),
   deletePoolQuestion: (poolId, questionId) => api.delete(`question-pools/${poolId}/questions/${questionId}`),
   seedExamFromPool: (poolId, examId, count = 5) =>

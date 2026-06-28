@@ -94,8 +94,6 @@
   "not_found": "Not found",
   "pool_not_found": "Pool not found",
   "pool_no_questions": "Pool has no questions. Add questions to the pool before seeding this test.",
-  "pool_bulk_empty": "No questions were provided to import.",
-  "pool_bulk_too_many": "Too many questions in one upload (max {max}).",
   "cannot_seed_published": "Cannot seed questions into a published test",
   "category_exists": "Category exists",
   "category_name_exists": "Category name already exists",
