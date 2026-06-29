@@ -46,7 +46,7 @@ describe('AdminReports page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(reportSchedules).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.getByText('No schedules yet.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No schedules yet')).toBeTruthy())
   })
 
   it('requires explicit confirmation before deleting a schedule', async () => {
@@ -72,12 +72,12 @@ describe('AdminReports page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(deleteReportSchedule).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Confirm delete' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Confirm Delete' })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Delete' }))
 
     await waitFor(() => expect(deleteReportSchedule).toHaveBeenCalledWith('schedule-1'))
-    await waitFor(() => expect(screen.getByText('Schedule deleted.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Schedule deleted successfully.')).toBeTruthy())
   })
 
   it('shows a filter-specific empty state and restores report schedules when filters are cleared', async () => {
@@ -108,7 +108,7 @@ describe('AdminReports page', () => {
 
     await waitFor(() => expect(screen.getByText('Showing 2 schedules across 2 loaded.')).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText('Search schedules'), { target: { value: 'missing schedule' } })
+    fireEvent.change(screen.getByLabelText('Search Schedules'), { target: { value: 'missing schedule' } })
 
     await waitFor(() => expect(screen.getByText('No schedules match the current filters.')).toBeTruthy())
 

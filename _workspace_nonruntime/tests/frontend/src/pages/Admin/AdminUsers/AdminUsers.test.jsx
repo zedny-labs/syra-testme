@@ -153,7 +153,7 @@ describe('AdminUsers permission modes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(createUserMock).toHaveBeenCalledTimes(1))
-    await waitFor(() => expect(screen.getByText('User created.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('User created successfully.')).toBeTruthy())
     await waitFor(() => expect(screen.getAllByText('Fresh User').length).toBeGreaterThan(0))
     expect(screen.getAllByText('fresh@example.com').length).toBeGreaterThan(0)
   })

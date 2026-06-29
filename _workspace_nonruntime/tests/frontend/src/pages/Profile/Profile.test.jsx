@@ -43,10 +43,10 @@ describe('Profile page', () => {
   it('skips profile submission when nothing changed', async () => {
     render(<Profile />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    await waitFor(() => expect(screen.getByText('No profile changes to save.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No changes to save.')).toBeTruthy())
     expect(updateProfileMock).not.toHaveBeenCalled()
   })
 
@@ -60,10 +60,10 @@ describe('Profile page', () => {
 
     render(<Profile />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }))
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: '  Learner Prime  ' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: '  LEARNER@EXAMPLE.COM ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(updateProfileMock).toHaveBeenCalledWith({
       name: 'Learner Prime',

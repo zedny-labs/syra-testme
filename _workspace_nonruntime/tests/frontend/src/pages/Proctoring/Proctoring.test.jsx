@@ -200,7 +200,7 @@ describe('Proctoring page', () => {
 
     renderPage()
 
-    await waitFor(() => expect(screen.getByText('No questions are available for this attempt.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No questions available for this attempt.')).toBeTruthy())
     expect(screen.getByRole('button', { name: 'Back to attempts list' })).toBeTruthy()
   })
 
@@ -214,7 +214,7 @@ describe('Proctoring page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review and submit test' }))
 
     await waitFor(() => expect(screen.getByText('Ready to submit?')).toBeTruthy())
-    expect(screen.getByText(/You still have 1 unanswered question./)).toBeTruthy()
+    expect(screen.getByText(/You still have 1 unanswered Question./)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Confirm Submit' })).toBeTruthy()
   })
 

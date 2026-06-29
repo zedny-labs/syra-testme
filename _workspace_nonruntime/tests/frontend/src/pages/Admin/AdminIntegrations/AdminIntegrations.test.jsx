@@ -52,7 +52,7 @@ describe('AdminIntegrations page', () => {
     const slackCard = screen.getByTestId('integration-card-slack')
     fireEvent.change(within(slackCard).getByLabelText('Webhook URL'), { target: { value: 'https://hooks.slack.test/path' } })
 
-    fireEvent.click(within(slackCard).getByRole('button', { name: /send test event/i }))
+    fireEvent.click(within(slackCard).getByRole('button', { name: /send test notification/i }))
 
     await waitFor(() => expect(testIntegrations).toHaveBeenCalledWith({
       slack: {
@@ -61,22 +61,22 @@ describe('AdminIntegrations page', () => {
         secret: '',
       },
     }))
-    await waitFor(() => expect(within(slackCard).getByText('Last test:')).toBeTruthy())
+    await waitFor(() => expect(within(slackCard).getByText('Last Test Result:')).toBeTruthy())
     expect(within(slackCard).getByText('sent')).toBeTruthy()
   })
 
   it('shows a filter-specific empty state and restores cards when filters are cleared', async () => {
     render(<AdminIntegrations />)
 
-    await waitFor(() => expect(screen.getByText('Showing 3 integrations across 3 available.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Showing 3 of 3 integrations')).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText('Search integrations'), { target: { value: 'archive provider' } })
+    fireEvent.change(screen.getByPlaceholderText('Filter by name, description, or URL...'), { target: { value: 'archive provider' } })
 
-    await waitFor(() => expect(screen.getByText('No integrations match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No integrations match your filters')).toBeTruthy())
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear Filters' })[0])
 
     await waitFor(() => expect(screen.getByText('Slack')).toBeTruthy())
-    expect(screen.getByText('Showing 3 integrations across 3 available.')).toBeTruthy()
+    expect(screen.getByText('Showing 3 of 3 integrations')).toBeTruthy()
   })
 })

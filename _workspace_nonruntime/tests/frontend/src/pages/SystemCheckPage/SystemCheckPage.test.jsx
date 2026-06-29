@@ -97,7 +97,7 @@ describe('SystemCheckPage', () => {
 
     renderPage()
 
-    await waitFor(() => expect(screen.getByText('Failed to load test configuration. Please refresh and try again.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load test settings. Please refresh and try again.')).toBeTruthy())
     expect(screen.getByRole('button', { name: 'Cannot continue' }).disabled).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry loading requirements' }))

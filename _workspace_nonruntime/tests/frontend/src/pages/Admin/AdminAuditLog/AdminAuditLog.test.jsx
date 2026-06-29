@@ -41,7 +41,7 @@ describe('AdminAuditLog page', () => {
 
     render(<AdminAuditLog />)
 
-    await waitFor(() => expect(screen.getByText('Failed to load audit logs.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Failed to load audit log entries.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(screen.getByText('admin@example.com')).toBeTruthy())
@@ -76,13 +76,13 @@ describe('AdminAuditLog page', () => {
     render(<AdminAuditLog />)
 
     await waitFor(() => expect(screen.getByText('admin@example.com')).toBeTruthy())
-    expect(screen.getByText('Matching entries')).toBeTruthy()
+    expect(screen.getByText('Matching Entries')).toBeTruthy()
     expect(screen.getByText(/2 matching entries/)).toBeTruthy()
-    expect(screen.getByText('Visible on page')).toBeTruthy()
+    expect(screen.getByText('Visible on Page')).toBeTruthy()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'View detail' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'View' })[0])
 
-    await waitFor(() => expect(screen.getByText('Full Detail:')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Full Detail')).toBeTruthy())
     expect(screen.getAllByText('Admin signed in from Cairo').length).toBeGreaterThan(1)
   })
 })

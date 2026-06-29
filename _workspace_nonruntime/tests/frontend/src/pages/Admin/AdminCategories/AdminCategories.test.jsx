@@ -47,7 +47,7 @@ describe('AdminCategories', () => {
   it('shows a retry path after loading fails', async () => {
     render(<AdminCategories />)
 
-    await waitFor(() => expect(screen.getByText('Failed to load categories.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load categories.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(screen.getByText('Core Assessments')).toBeTruthy())
@@ -56,15 +56,15 @@ describe('AdminCategories', () => {
   it('shows a filter-specific empty state and restores the full list when filters are cleared', async () => {
     render(<AdminCategories />)
 
-    await waitFor(() => expect(screen.getByText('Failed to load categories.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load categories.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(screen.getByText('Core Assessments')).toBeTruthy())
 
-    fireEvent.change(screen.getByPlaceholderText('Search categories...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search categories by name or description...'), {
       target: { value: 'missing' },
     })
 
-    await waitFor(() => expect(screen.getByText('No categories match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No categories match your search')).toBeTruthy())
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1))
 
     await waitFor(() => expect(screen.getByText('Core Assessments')).toBeTruthy())
