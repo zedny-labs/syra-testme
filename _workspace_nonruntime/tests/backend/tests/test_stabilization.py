@@ -32,7 +32,7 @@ from src.app.api.routes import user_groups as user_groups_routes
 from src.app.api.routes import users as users_routes
 from src.app.detection.orchestrator import ProctoringOrchestrator
 from src.app.modules.tests.proctoring_requirements import get_proctoring_requirements
-from src.app.models import AccessMode, Attempt, AttemptAnswer, CourseStatus, ExamStatus, ExamType, Question, RoleEnum
+from src.app.models import AccessMode, Attempt, AttemptAnswer, CourseStatus, Exam, ExamStatus, ExamType, Question, RoleEnum
 from src.app.schemas import AttemptAnswerBase, QuestionCreate, QuestionRead, ScheduleUpdate, UserPreferenceUpdate
 
 
@@ -708,10 +708,11 @@ def test_evaluate_answer_handles_ordering_matching_and_fill_in_blank_types():
 
 def test_grade_attempt_preserves_original_submission_timestamp():
     attempt_id = uuid.uuid4()
+    exam_id = uuid.uuid4()
     submitted_at = datetime.now(timezone.utc) - timedelta(minutes=30)
     attempt = Attempt(
         id=attempt_id,
-        exam_id=uuid.uuid4(),
+        exam_id=exam_id,
         user_id=uuid.uuid4(),
         status=attempts_routes.AttemptStatus.SUBMITTED,
         score=None,
@@ -721,11 +722,15 @@ def test_grade_attempt_preserves_original_submission_timestamp():
         submitted_at=submitted_at,
     )
     current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
+    # Per-admin isolation: the grader must own the exam behind the attempt.
+    owned_exam = Exam(id=exam_id, created_by_id=current_user.id)
 
     class DummySession:
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def add(self, _obj):
@@ -882,6 +887,8 @@ def test_review_attempt_answer_and_finalize_review_publish_score():
         points_earned=1.0,
     )
     current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
+    # Per-admin isolation: the reviewer must own the exam behind the attempt.
+    owned_exam = Exam(id=exam_id, created_by_id=current_user.id)
 
     class DummyScalarResult:
         def __init__(self, rows):
@@ -894,6 +901,8 @@ def test_review_attempt_answer_and_finalize_review_publish_score():
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def scalar(self, _query):
@@ -928,6 +937,8 @@ def test_review_attempt_answer_and_finalize_review_publish_score():
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def scalars(self, _query):
@@ -994,6 +1005,9 @@ def test_finalize_attempt_review_requires_all_manual_answers_to_be_scored():
         is_correct=None,
         points_earned=None,
     )
+    current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
+    # Per-admin isolation: the reviewer must own the exam behind the attempt.
+    owned_exam = Exam(id=exam_id, created_by_id=current_user.id)
 
     class DummyScalarResult:
         def __init__(self, rows):
@@ -1009,6 +1023,8 @@ def test_finalize_attempt_review_requires_all_manual_answers_to_be_scored():
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def scalars(self, _query):
@@ -1024,7 +1040,7 @@ def test_finalize_attempt_review_requires_all_manual_answers_to_be_scored():
             attempts_routes.finalize_attempt_review(
                 str(attempt_id),
                 db=DummySession(),
-                current=SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN),
+                current=current_user,
             )
         )
     except HTTPException as exc:
