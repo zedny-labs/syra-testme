@@ -1,31 +1,24 @@
 import React, { useMemo, useState } from 'react'
 import { adminApi } from '../../../services/admin.service'
 import useLanguage from '../../../hooks/useLanguage'
+import QuestionTypeFields from '../../../components/QuestionTypeFields/QuestionTypeFields'
+import QuestionImageUpload from '../../../components/QuestionImageUpload/QuestionImageUpload'
+import {
+  normalizeQuestionType,
+  emptyAnswerState,
+  questionToAnswerState,
+  answerStateToPayload,
+  validateAnswerState,
+} from '../../../utils/questionPayload'
 import styles from './ExamQuestionPanel.module.scss'
 
-const EMPTY_MCQ = { text: '', question_type: 'MCQ', options: ['', '', '', ''], correct_answer: 'A', points: 1 }
-const EMPTY_TEXT = { text: '', question_type: 'TEXT', correct_answer: '', points: 1 }
-
-const MCQ_TYPES = new Set(['MCQ', 'MULTI'])
 const DEFAULT_TYPES = [
   { value: 'MCQ', labelKey: 'question_type_mcq' },
   { value: 'TEXT', labelKey: 'question_type_text' },
 ]
 
 function createEmptyQuestion(type) {
-  if (type === 'TRUEFALSE') {
-    return { text: '', question_type: type, options: ['True', 'False'], correct_answer: 'A', points: 1 }
-  }
-  if (MCQ_TYPES.has(type)) {
-    return { text: '', question_type: type, options: ['', '', '', ''], correct_answer: 'A', points: 1 }
-  }
-  return { text: '', question_type: type, correct_answer: '', points: 1 }
-}
-
-function normalizeOptions(questionType, options) {
-  if (questionType === 'TRUEFALSE') return ['True', 'False']
-  if (!MCQ_TYPES.has(questionType)) return null
-  return (options || []).map((entry) => entry.trim()).filter(Boolean)
+  return { text: '', question_type: type, answer: emptyAnswerState(type), points: 1, image_url: null }
 }
 
 function resolveLabel(type, t) {
@@ -59,19 +52,12 @@ export default function ExamQuestionPanel({ examId, questions = [], onUpdate, qu
   )
 
   const activeTypeLabel = labelForType(types, form.question_type, t)
-  const currentOptions = form.options || []
-  const trimmedOptions = normalizeOptions(form.question_type, currentOptions)
 
   const validationMessage = (() => {
     if (!form.text.trim()) return t('admin_questions_text_required')
     if (!Number(form.points) || Number(form.points) <= 0) return t('admin_questions_points_required')
-    if (MCQ_TYPES.has(form.question_type) && (!trimmedOptions || trimmedOptions.length < 2)) {
-      return t('admin_questions_min_options')
-    }
-    if ((MCQ_TYPES.has(form.question_type) || form.question_type === 'TRUEFALSE') && !form.correct_answer) {
-      return t('admin_questions_correct_answer_required')
-    }
-    return ''
+    const answerKey = validateAnswerState(form.question_type, form.answer)
+    return answerKey ? t(answerKey) : ''
   })()
 
   const canMutate = Boolean(examId) && !saving && !refreshing
@@ -108,13 +94,13 @@ export default function ExamQuestionPanel({ examId, questions = [], onUpdate, qu
   }
 
   const openEdit = (question) => {
-    const nextType = question.question_type
+    const nextType = normalizeQuestionType(question.question_type || question.type)
     setForm({
       text: question.text,
       question_type: nextType,
-      options: question.options || createEmptyQuestion(nextType).options || [],
-      correct_answer: question.correct_answer || '',
+      answer: questionToAnswerState(question),
       points: question.points || 1,
+      image_url: question.image_url ?? null,
     })
     setEditId(question.id)
     setError('')
@@ -137,19 +123,18 @@ export default function ExamQuestionPanel({ examId, questions = [], onUpdate, qu
     setNotice('')
 
     const questionType = form.question_type || 'MCQ'
-    const normalizedOptions = normalizeOptions(questionType, form.options)
+    const { options, correct_answer } = answerStateToPayload(questionType, form.answer)
     const payload = {
       exam_id: examId,
       text: form.text.trim(),
       type: questionType,
-      options: normalizedOptions,
-      correct_answer: questionType === 'TRUEFALSE'
-        ? (form.correct_answer || 'A')
-        : form.correct_answer?.trim() || null,
+      options,
+      correct_answer,
       points: Number(form.points),
       order: editId
         ? (questions.find((question) => question.id === editId)?.order || 0)
         : (questions?.length || 0) + 1,
+      image_url: form.image_url || null,
     }
 
     try {
@@ -188,13 +173,6 @@ export default function ExamQuestionPanel({ examId, questions = [], onUpdate, qu
     } finally {
       setDeletingId(null)
     }
-  }
-
-  const updateOption = (index, value) => {
-    setForm((current) => ({
-      ...current,
-      options: (current.options || []).map((entry, optionIndex) => (optionIndex === index ? value : entry)),
-    }))
   }
 
   return (
@@ -323,69 +301,24 @@ export default function ExamQuestionPanel({ examId, questions = [], onUpdate, qu
             />
           </div>
 
-          {MCQ_TYPES.has(form.question_type) && (
-            <>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>{t('admin_questions_options')}</label>
-                <div className={styles.optionsEditor}>
-                  {currentOptions.map((option, index) => (
-                    <div key={index} className={styles.optionRow}>
-                      <span className={styles.optionLetter}>{String.fromCharCode(65 + index)}</span>
-                      <input
-                        className={styles.optionInput}
-                        value={option}
-                        onChange={(e) => updateOption(index, e.target.value)}
-                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                        disabled={saving}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className={styles.helper}>{t('admin_questions_options_helper')}</div>
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>{t('admin_questions_correct_answer_label')}</label>
-                <select
-                  className={styles.select}
-                  value={form.correct_answer}
-                  onChange={(e) => setForm((current) => ({ ...current, correct_answer: e.target.value }))}
-                  disabled={saving}
-                >
-                  {currentOptions.map((_, index) => (
-                    <option key={index} value={String.fromCharCode(65 + index)}>{String.fromCharCode(65 + index)}</option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
+          <div className={styles.formGroup}>
+            <QuestionImageUpload
+              value={form.image_url}
+              onChange={(url) => setForm((current) => ({ ...current, image_url: url }))}
+              disabled={saving}
+              t={t}
+            />
+          </div>
 
-          {form.question_type === 'TRUEFALSE' && (
-            <div className={styles.formGroup}>
-              <label className={styles.label}>{t('admin_questions_correct_answer_label')}</label>
-              <select
-                className={styles.select}
-                value={form.correct_answer}
-                onChange={(e) => setForm((current) => ({ ...current, correct_answer: e.target.value }))}
-                disabled={saving}
-              >
-                <option value="A">{t('question_true')}</option>
-                <option value="B">{t('question_false')}</option>
-              </select>
-            </div>
-          )}
-
-          {!MCQ_TYPES.has(form.question_type) && form.question_type !== 'TRUEFALSE' && (
-            <div className={styles.formGroup}>
-              <label className={styles.label}>{t('admin_questions_expected_answer')}</label>
-              <input
-                className={styles.input}
-                value={form.correct_answer}
-                onChange={(e) => setForm((current) => ({ ...current, correct_answer: e.target.value }))}
-                placeholder={t('admin_questions_expected_answer_placeholder')}
-                disabled={saving}
-              />
-            </div>
-          )}
+          <div className={styles.formGroup}>
+            <QuestionTypeFields
+              type={form.question_type}
+              state={form.answer}
+              onChange={(answer) => setForm((current) => ({ ...current, answer }))}
+              disabled={saving}
+              t={t}
+            />
+          </div>
 
           <div className={styles.formGroup}>
             <label className={styles.label}>{t('admin_questions_points')}</label>
