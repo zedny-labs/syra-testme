@@ -1,0 +1,15 @@
+.wrap { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.label { font-size: 0.85rem; font-weight: 600; opacity: 0.85; }
+.hiddenInput { display: none; }
+.addBtn, .removeBtn {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+}
+.addBtn[disabled], .removeBtn[disabled] { opacity: 0.5; cursor: default; }
+.preview { display: flex; align-items: flex-start; gap: 10px; }
+.thumb { max-width: 160px; max-height: 120px; border-radius: 8px; object-fit: contain; border: 1px solid rgba(0,0,0,0.1); }
+.error { color: #c0392b; font-size: 0.82rem; }
