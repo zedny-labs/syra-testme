@@ -356,6 +356,7 @@ def create_pool_question(
         correct_answer=payload.get("correct_answer"),
         points=payload["points"],
         order=next_order + 1,
+        image_url=payload.get("image_url"),
         pool_id=pool_pk,
         created_at=now,
         updated_at=now,
@@ -433,6 +434,7 @@ def update_pool_question(
     question.options = payload.get("options")
     question.correct_answer = payload.get("correct_answer")
     question.points = payload["points"]
+    question.image_url = payload.get("image_url")
     question.updated_at = datetime.now(timezone.utc)
     db.add(question)
     db.commit()
