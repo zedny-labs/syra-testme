@@ -1,5 +1,10 @@
 # ── Core framework ────────────────────────────
-fastapi>=0.111.0
+# Pinned: Starlette 1.x (pulled in by fastapi >=0.13x) changed nested-router path
+# registration, which breaks the startup _assert_required_api_routes() check and
+# prevents the backend from booting. fastapi 0.115.6 constrains starlette to 0.41.x.
+# Verified: these versions register all REQUIRED_API_ROUTES; newer ones do not.
+fastapi==0.115.6
+starlette==0.41.3
 uvicorn>=0.29.0
 gunicorn>=22.0.0
 websockets>=12.0
@@ -22,8 +27,9 @@ celery[redis]>=5.4.0
 redis[asyncio]>=4.2.0          # live_bus.py uses redis.asyncio for cross-worker pub/sub
 
 # ── Config & templating ──────────────────────
-pydantic-settings>=2.2.0
-pydantic[email]>=2.6.0
+# Pinned alongside fastapi/starlette above for a reproducible, verified build.
+pydantic-settings==2.7.1
+pydantic[email]==2.10.4
 jinja2>=3.1.3
 pyyaml>=6.0
 
