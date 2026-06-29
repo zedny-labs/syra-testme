@@ -74,7 +74,7 @@ def test_logout_returns_ok(client, learner_headers):
     assert response.json() == {"detail": "Logged out"}
 
 
-def test_reactivating_user_does_not_restore_previous_tokens(client, admin_headers, learner_user):
+def test_reactivating_user_does_not_restore_previous_tokens(client, admin_headers, learner_user, link_learner_to_admin):
     login_response = client.post(
         "/api/auth/login",
         json={"email": learner_user.email, "password": "Password123!"},
@@ -109,7 +109,7 @@ def test_reactivating_user_does_not_restore_previous_tokens(client, admin_header
     assert refresh_response.json() == {"detail": "Invalid token"}
 
 
-def test_role_change_invalidates_existing_tokens(client, admin_headers, learner_user):
+def test_role_change_invalidates_existing_tokens(client, admin_headers, learner_user, link_learner_to_admin):
     login_response = client.post(
         "/api/auth/login",
         json={"email": learner_user.email, "password": "Password123!"},

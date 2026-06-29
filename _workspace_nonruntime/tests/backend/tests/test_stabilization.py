@@ -1909,12 +1909,21 @@ def test_user_update_supports_user_id_changes():
     )
 
     class DummySession:
+        def __init__(self):
+            self.scalar_calls = 0
+
         def get(self, model, key):
             if getattr(model, "__name__", "") == "User" and key == target_user_id:
                 return user
             return None
 
         def scalar(self, _query):
+            # 1st call: per-admin isolation connection check (target user has
+            # attempted one of the actor's exams). Later calls: uniqueness
+            # lookups for the new user_id/email, which must find no conflict.
+            self.scalar_calls += 1
+            if self.scalar_calls == 1:
+                return 1
             return None
 
         def add(self, _obj):

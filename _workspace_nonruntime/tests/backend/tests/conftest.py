@@ -1,6 +1,7 @@
 import os
 import sys
 from collections.abc import Generator
+from datetime import datetime, timezone
 from pathlib import Path
 
 os.environ.setdefault("JWT_SECRET", "test-secret-key-with-at-least-32-chars")
@@ -39,7 +40,19 @@ import src.app.db.session as db_session
 from src.app.core.security import create_access_token, hash_password
 from src.app.db.base import Base
 from src.app.main import app
-from src.app.models import RoleEnum, SystemSettings, User
+from src.app.models import (
+    Attempt,
+    AttemptStatus,
+    Course,
+    CourseStatus,
+    Exam,
+    ExamStatus,
+    ExamType,
+    Node,
+    RoleEnum,
+    SystemSettings,
+    User,
+)
 from tests.postgres_test_utils import create_test_engine, drop_postgres_database
 
 
@@ -186,3 +199,51 @@ def enable_signup(db):
     db.commit()
     db.refresh(setting)
     return setting
+
+
+@pytest.fixture()
+def link_learner_to_admin(db, admin_user, learner_user):
+    """Establish the attempt-based link per-admin data isolation requires.
+
+    Admins/instructors have no global access: ``get_user`` (used by every user
+    management endpoint) only resolves a target user when that user has
+    attempted an exam the actor created. This fixture creates an admin-owned
+    exam and a learner attempt on it so admin↔learner management endpoints are
+    reachable in tests that exercise that path.
+    """
+    now = datetime.now(timezone.utc)
+    course = Course(
+        title="Linking Course",
+        description="Connects the admin and learner for isolation tests",
+        status=CourseStatus.DRAFT,
+        created_by_id=admin_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(course)
+    db.flush()
+    node = Node(course_id=course.id, title="Module 1", order=0, created_at=now, updated_at=now)
+    db.add(node)
+    db.flush()
+    exam = Exam(
+        node_id=node.id,
+        title="Linking Exam",
+        type=ExamType.MCQ,
+        status=ExamStatus.OPEN,
+        max_attempts=1,
+        created_by_id=admin_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(exam)
+    db.flush()
+    attempt = Attempt(
+        exam_id=exam.id,
+        user_id=learner_user.id,
+        status=AttemptStatus.SUBMITTED,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(attempt)
+    db.commit()
+    return exam
