@@ -399,6 +399,7 @@ def bulk_create_pool_questions(
             correct_answer=payload.get("correct_answer"),
             points=payload["points"],
             order=next_order,
+            image_url=payload.get("image_url"),
             pool_id=pool_pk,
             created_at=now,
             updated_at=now,
@@ -507,7 +508,7 @@ def seed_exam_from_pool(
         q = Question(
             exam_id=exam_pk, text=pq.text, type=pq.type, options=pq.options,
             correct_answer=pq.correct_answer, points=pq.points,
-            order=existing_max + i + 1, pool_id=pool_pk,
+            order=existing_max + i + 1, pool_id=pool_pk, image_url=pq.image_url,
         )
         db.add(q)
     db.commit()
