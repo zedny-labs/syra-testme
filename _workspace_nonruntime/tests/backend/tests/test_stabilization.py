@@ -32,7 +32,7 @@ from src.app.api.routes import user_groups as user_groups_routes
 from src.app.api.routes import users as users_routes
 from src.app.detection.orchestrator import ProctoringOrchestrator
 from src.app.modules.tests.proctoring_requirements import get_proctoring_requirements
-from src.app.models import AccessMode, Attempt, AttemptAnswer, CourseStatus, ExamStatus, ExamType, Question, RoleEnum
+from src.app.models import AccessMode, Attempt, AttemptAnswer, CourseStatus, Exam, ExamStatus, ExamType, Question, RoleEnum
 from src.app.schemas import AttemptAnswerBase, QuestionCreate, QuestionRead, ScheduleUpdate, UserPreferenceUpdate
 
 
@@ -196,7 +196,8 @@ def test_ocr_falls_back_to_easyocr_when_tesseract_is_unavailable(monkeypatch):
 
     class DummyReader:
         def __init__(self, langs, gpu):
-            assert langs == ["en"]
+            # Egyptian IDs carry Arabic text, so the reader is built for ar+en.
+            assert langs == ["ar", "en"]
             assert gpu is False
 
         def readtext(self, _img, detail=0):
@@ -280,6 +281,12 @@ def test_list_exams_orders_newest_first():
         def all():
             return []
 
+        def unique(self):
+            return self
+
+        def scalars(self):
+            return self
+
     class DummySession:
         def __init__(self):
             self.query = None
@@ -317,6 +324,12 @@ def test_list_exams_applies_custom_search_and_sort_for_learner():
         def all():
             return []
 
+        def unique(self):
+            return self
+
+        def scalars(self):
+            return self
+
     class DummySession:
         def __init__(self):
             self.query = None
@@ -352,7 +365,11 @@ def test_list_exams_applies_custom_search_and_sort_for_learner():
     assert "exams.status" in query_text.lower()
     assert ":status_" in query_text
     normalized_query_text = query_text.lower()
-    assert "exists (select" in normalized_query_text
+    # The learner catalog scopes to scheduled exams via a JOIN against the
+    # learner's own schedules (replaced the earlier EXISTS subquery during the
+    # query refactor); the access semantics are unchanged.
+    assert "schedules.user_id" in normalized_query_text
+    assert "schedules.scheduled_at" in normalized_query_text
     assert "lower(exams.title)" in normalized_query_text
 
 
@@ -368,6 +385,12 @@ def test_list_exams_prefers_page_over_skip_when_both_provided():
         @staticmethod
         def all():
             return []
+
+        def unique(self):
+            return self
+
+        def scalars(self):
+            return self
 
     class DummySession:
         def __init__(self):
@@ -708,10 +731,11 @@ def test_evaluate_answer_handles_ordering_matching_and_fill_in_blank_types():
 
 def test_grade_attempt_preserves_original_submission_timestamp():
     attempt_id = uuid.uuid4()
+    exam_id = uuid.uuid4()
     submitted_at = datetime.now(timezone.utc) - timedelta(minutes=30)
     attempt = Attempt(
         id=attempt_id,
-        exam_id=uuid.uuid4(),
+        exam_id=exam_id,
         user_id=uuid.uuid4(),
         status=attempts_routes.AttemptStatus.SUBMITTED,
         score=None,
@@ -721,11 +745,15 @@ def test_grade_attempt_preserves_original_submission_timestamp():
         submitted_at=submitted_at,
     )
     current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
+    # Per-admin isolation: the grader must own the exam behind the attempt.
+    owned_exam = Exam(id=exam_id, created_by_id=current_user.id)
 
     class DummySession:
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def add(self, _obj):
@@ -882,6 +910,8 @@ def test_review_attempt_answer_and_finalize_review_publish_score():
         points_earned=1.0,
     )
     current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
+    # Per-admin isolation: the reviewer must own the exam behind the attempt.
+    owned_exam = Exam(id=exam_id, created_by_id=current_user.id)
 
     class DummyScalarResult:
         def __init__(self, rows):
@@ -894,6 +924,8 @@ def test_review_attempt_answer_and_finalize_review_publish_score():
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def scalar(self, _query):
@@ -928,6 +960,8 @@ def test_review_attempt_answer_and_finalize_review_publish_score():
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def scalars(self, _query):
@@ -994,6 +1028,9 @@ def test_finalize_attempt_review_requires_all_manual_answers_to_be_scored():
         is_correct=None,
         points_earned=None,
     )
+    current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
+    # Per-admin isolation: the reviewer must own the exam behind the attempt.
+    owned_exam = Exam(id=exam_id, created_by_id=current_user.id)
 
     class DummyScalarResult:
         def __init__(self, rows):
@@ -1009,6 +1046,8 @@ def test_finalize_attempt_review_requires_all_manual_answers_to_be_scored():
         def get(self, model, key):
             if model is Attempt and key == attempt_id:
                 return attempt
+            if model is Exam and key == exam_id:
+                return owned_exam
             return None
 
         def scalars(self, _query):
@@ -1024,7 +1063,7 @@ def test_finalize_attempt_review_requires_all_manual_answers_to_be_scored():
             attempts_routes.finalize_attempt_review(
                 str(attempt_id),
                 db=DummySession(),
-                current=SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN),
+                current=current_user,
             )
         )
     except HTTPException as exc:
@@ -1521,6 +1560,9 @@ def test_custom_report_rows_use_canonical_tests_and_exclude_pool_library_records
         def __init__(self, rows):
             self.rows = rows
 
+        def unique(self):
+            return self
+
         def all(self):
             return self.rows
 
@@ -1909,12 +1951,21 @@ def test_user_update_supports_user_id_changes():
     )
 
     class DummySession:
+        def __init__(self):
+            self.scalar_calls = 0
+
         def get(self, model, key):
             if getattr(model, "__name__", "") == "User" and key == target_user_id:
                 return user
             return None
 
         def scalar(self, _query):
+            # 1st call: per-admin isolation connection check (target user has
+            # attempted one of the actor's exams). Later calls: uniqueness
+            # lookups for the new user_id/email, which must find no conflict.
+            self.scalar_calls += 1
+            if self.scalar_calls == 1:
+                return 1
             return None
 
         def add(self, _obj):
