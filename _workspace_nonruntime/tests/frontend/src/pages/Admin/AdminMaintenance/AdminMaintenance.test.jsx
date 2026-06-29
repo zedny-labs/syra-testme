@@ -35,17 +35,17 @@ describe('AdminMaintenance page', () => {
 
     await waitFor(() => expect(screen.getByText('Settings loaded')).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'down' } })
+    fireEvent.change(screen.getByLabelText('Maintenance Mode'), { target: { value: 'down' } })
     fireEvent.change(screen.getByLabelText('Banner Message'), { target: { value: '  Planned maintenance at 10 PM  ' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(updateSetting).toHaveBeenNthCalledWith(1, 'maintenance_mode', 'down'))
     await waitFor(() => expect(updateSetting).toHaveBeenNthCalledWith(2, 'maintenance_banner', 'Planned maintenance at 10 PM'))
-    await waitFor(() => expect(screen.getByText('Maintenance settings saved.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Maintenance settings saved successfully.')).toBeTruthy())
 
     fireEvent.change(screen.getByLabelText('Banner Message'), { target: { value: 'Temporary text' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Reset changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Changes' }))
 
     expect(screen.getByLabelText('Banner Message').value).toBe('Planned maintenance at 10 PM')
   })
@@ -55,11 +55,11 @@ describe('AdminMaintenance page', () => {
 
     await waitFor(() => expect(screen.getByText('Settings loaded')).toBeTruthy())
 
-    fireEvent.click(screen.getByRole('button', { name: /^Read-only/ }))
+    fireEvent.change(screen.getByLabelText('Maintenance Mode'), { target: { value: 'read-only' } })
     fireEvent.change(screen.getByLabelText('Banner Message'), { target: { value: 'Custom temporary banner' } })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use default banner' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Use Default Banner' }))
 
-    expect(screen.getByLabelText('Banner Message').value).toBe('Scheduled maintenance is in progress. Changes may be temporarily limited.')
+    expect(screen.getByLabelText('Banner Message').value).toBe('The system is currently in read-only mode. Some features may be unavailable.')
   })
 })

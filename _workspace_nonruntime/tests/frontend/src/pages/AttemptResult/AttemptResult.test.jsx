@@ -114,7 +114,7 @@ describe('AttemptResult page', () => {
     renderResult()
 
     await waitFor(() => expect(screen.getByText('Biology Quiz')).toBeTruthy())
-    expect(screen.getByText('Some result details could not be loaded. Retry to restore the full review.')).toBeTruthy()
+    expect(screen.getByText('Some details could not be loaded. Try again to see the full review.')).toBeTruthy()
     expect(screen.getByText('75')).toBeTruthy()
   })
 
@@ -336,7 +336,7 @@ describe('AttemptResult page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Save review/i }))
 
     await waitFor(() => expect(reviewAttemptAnswer).toHaveBeenCalledWith('attempt-1', 'answer-1', 4))
-    expect(screen.getByText(/Manual review points saved/)).toBeTruthy()
+    expect(screen.getByText(/Review points saved/)).toBeTruthy()
     expect(screen.getByText(/Awarded points:/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Finalize review/i }))

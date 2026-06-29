@@ -60,7 +60,7 @@ describe('AdminFavoriteReports page', () => {
 
     render(<AdminFavoriteReports />)
 
-    await waitFor(() => expect(screen.getByText('Failed to load favorites.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load favorite reports.')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
@@ -100,15 +100,15 @@ describe('AdminFavoriteReports page', () => {
 
     render(<AdminFavoriteReports />)
 
-    await waitFor(() => expect(screen.getByText('Showing 2 favorites across 2 saved.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Showing 2 favorite(s) across 2 saved.')).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText('Search favorites'), { target: { value: 'missing report' } })
+    fireEvent.change(screen.getByPlaceholderText('Search saved favorites...'), { target: { value: 'missing report' } })
 
     await waitFor(() => expect(screen.getByText('No favorites match the current filters.')).toBeTruthy())
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 
     await waitFor(() => expect(screen.getByText('Scheduled Reports')).toBeTruthy())
-    expect(screen.getByText('Showing 2 favorites across 2 saved.')).toBeTruthy()
+    expect(screen.getByText('Showing 2 favorite(s) across 2 saved.')).toBeTruthy()
   })
 })

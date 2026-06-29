@@ -91,7 +91,7 @@ describe('Exams page', () => {
 
     fireEvent.change(screen.getByLabelText('Search tests'), { target: { value: 'biology' } })
 
-    expect(screen.getByText('No tests match the current search')).toBeTruthy()
+    expect(screen.getByText('No tests match your search')).toBeTruthy()
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 

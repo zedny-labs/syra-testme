@@ -46,6 +46,9 @@ describe('AdminSurveys instructor permissions', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Program Feedback')).toBeTruthy())
+    // Instructors can still create their own surveys; open the create modal to
+    // confirm the form fields are available (the form is modal-gated).
+    fireEvent.click(screen.getByRole('button', { name: 'New Survey' }))
     expect(screen.getByLabelText('Title')).toBeTruthy()
     expect(screen.getByLabelText('Description')).toBeTruthy()
     expect(screen.getByText('Read-only — only the owner or an admin can edit.')).toBeTruthy()
@@ -76,7 +79,7 @@ describe('AdminSurveys instructor permissions', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('network down')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Failed to load surveys')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(screen.getByText('Program Feedback')).toBeTruthy())

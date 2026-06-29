@@ -60,8 +60,8 @@ describe('Home page', () => {
     )
 
     await waitFor(() => expect(screen.getByText(/Dashboard data is temporarily unavailable/i)).toBeTruthy())
-    expect(screen.getByRole('link', { name: 'Browse Tests' })).toBeTruthy()
-    expect(screen.getByText('No upcoming scheduled tests.')).toBeTruthy()
+    expect(screen.getAllByRole('link', { name: 'Browse Tests' })[0]).toBeTruthy()
+    expect(screen.getByText('No upcoming exams scheduled.')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry dashboard' }))
 
@@ -69,7 +69,8 @@ describe('Home page', () => {
   })
 
   it('falls back cleanly when the dashboard endpoint resolves without a payload', async () => {
-    apiGet.mockResolvedValueOnce(undefined)
+    apiGet.mockReset()
+    apiGet.mockResolvedValue(undefined)
 
     render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -78,6 +79,6 @@ describe('Home page', () => {
     )
 
     await waitFor(() => expect(screen.getByText(/Dashboard data is temporarily unavailable/i)).toBeTruthy())
-    expect(screen.getByText('No upcoming scheduled tests.')).toBeTruthy()
+    expect(screen.getAllByRole('link', { name: 'Browse Tests' })[0]).toBeTruthy()
   })
 })

@@ -33,8 +33,8 @@ describe('AdminSettings', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('Failed to load settings.')).toBeTruthy())
-    expect(screen.getByRole('button', { name: 'Save Self-registration' }).disabled).toBe(true)
+    await waitFor(() => expect(screen.getByText('Failed to load settings. Please try again.')).toBeTruthy())
+    expect(screen.getByRole('button', { name: 'Save Self-Registration' }).disabled).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 

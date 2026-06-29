@@ -60,7 +60,7 @@ describe('RulesPage', () => {
 
     renderPage()
 
-    await waitFor(() => expect(screen.getByText('Failed to load the test rules and requirements. Retry before starting.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load test rules. Please retry before starting.')).toBeTruthy())
     expect(screen.getByRole('button', { name: 'Start test' }).disabled).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry loading rules' }))
@@ -83,7 +83,7 @@ describe('RulesPage', () => {
     renderPage()
 
     await waitFor(() => expect(screen.getByText('System check')).toBeTruthy())
-    expect(screen.getByText(/System check has not been completed in this browser session yet./)).toBeTruthy()
+    expect(screen.getByText(/Complete the system check before starting./)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Complete system check first' }).disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'Back to system check' })).toBeTruthy()
   })

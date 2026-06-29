@@ -83,10 +83,10 @@ describe('AdminUserGroups page', () => {
 
     await waitFor(() => expect(screen.getByText('Cohort A')).toBeTruthy())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete group Cohort A' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete for group Cohort A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Cohort A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Cohort A' }))
 
-    expect(screen.getByRole('button', { name: 'Confirm delete for group Cohort A' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Confirm delete Cohort A' }).disabled).toBe(true)
 
     resolveDelete({ data: {} })
 

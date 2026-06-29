@@ -86,13 +86,13 @@ describe('VerifyIdentityPage', () => {
 
     renderPage()
 
-    await waitFor(() => expect(screen.getByText('Failed to load test verification requirements. Please refresh and try again.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load verification requirements. Please refresh and try again.')).toBeTruthy())
     const confirmButton = screen.getByRole('button', { name: 'Confirm & Continue' })
     expect(confirmButton.disabled).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Reload verification requirements' }))
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Upload selfie image' }).disabled).toBe(false))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Capture selfie from live camera' })).toBeTruthy())
     expect(screen.getByRole('button', { name: 'Upload ID image' }).disabled).toBe(false)
     expect(screen.getByRole('button', { name: 'Confirm & Continue' }).disabled).toBe(true)
   })

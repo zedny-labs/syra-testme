@@ -1,5 +1,5 @@
 import React from 'react'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -54,10 +54,13 @@ describe('AdminCourses instructor permissions', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Shared Course')).toBeTruthy())
+    // Instructors can still create their own courses; open the create modal to
+    // confirm the form fields are available (the form is modal-gated).
+    fireEvent.click(screen.getByRole('button', { name: 'New Course' }))
     expect(screen.getByLabelText('Title')).toBeTruthy()
     expect(screen.getByLabelText('Description')).toBeTruthy()
     expect(screen.getByLabelText('Status')).toBeTruthy()
-    expect(screen.getByText('Read-only course. Only the course owner or an admin can edit modules and publishing settings.')).toBeTruthy()
+    expect(screen.getByText('Read-only — you are not the owner of this course.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Unpublish' })).toBeNull()
@@ -73,7 +76,7 @@ describe('AdminCourses instructor permissions', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Shared Course')).toBeTruthy())
-    expect(screen.getByText('Course modules could not be loaded until you retry.')).toBeTruthy()
+    expect(screen.getByText('Module data could not be loaded.')).toBeTruthy()
   })
 
   it('keeps courses visible when linked tests fail to load', async () => {
@@ -86,6 +89,6 @@ describe('AdminCourses instructor permissions', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Shared Course')).toBeTruthy())
-    expect(screen.getByText('Linked tests could not be loaded. Courses and modules remain available, but linked test counts may be incomplete until you retry.')).toBeTruthy()
+    expect(screen.getByText('Test data could not be loaded.')).toBeTruthy()
   })
 })

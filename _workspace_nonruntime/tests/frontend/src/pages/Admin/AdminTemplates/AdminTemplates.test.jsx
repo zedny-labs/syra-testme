@@ -1,6 +1,6 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminTemplates from './AdminTemplates'
 
@@ -37,6 +37,10 @@ describe('AdminTemplates instructor permissions', () => {
     })
   })
 
+  afterEach(() => {
+    cleanup()
+  })
+
   it('shows shared templates as read-only for instructors', async () => {
     render(<AdminTemplates />)
 
@@ -67,15 +71,15 @@ describe('AdminTemplates instructor permissions', () => {
 
     render(<AdminTemplates />)
 
-    await waitFor(() => expect(screen.getByText('Showing 2 templates across 2 loaded.')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('Showing 2 template(s) across 2 loaded.')[0]).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText('Search templates'), { target: { value: 'biology' } })
+    fireEvent.change(screen.getByPlaceholderText('Search name or description...'), { target: { value: 'biology' } })
 
-    await waitFor(() => expect(screen.getByText('No templates match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('No templates match the current filters.')[0]).toBeTruthy())
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 
     await waitFor(() => expect(screen.getByText('My Physics Template')).toBeTruthy())
-    expect(screen.getByText('Showing 2 templates across 2 loaded.')).toBeTruthy()
+    expect(screen.getAllByText('Showing 2 template(s) across 2 loaded.')[0]).toBeTruthy()
   })
 })

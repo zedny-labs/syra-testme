@@ -45,7 +45,7 @@ describe('AdminQuestionPools', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('Failed to load question pools.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load question pools.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(screen.getByText('Core Algebra')).toBeTruthy())
@@ -67,11 +67,11 @@ describe('AdminQuestionPools', () => {
 
     await waitFor(() => expect(screen.getByText('Core Algebra')).toBeTruthy())
 
-    fireEvent.change(screen.getAllByPlaceholderText('Search pools...').at(-1), {
+    fireEvent.change(screen.getAllByPlaceholderText('Search pools by name or description...').at(-1), {
       target: { value: 'physics' },
     })
 
-    await waitFor(() => expect(screen.getByText('No pools match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No pools match your search')).toBeTruthy())
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1))
 
     await waitFor(() => expect(screen.getByText('Core Algebra')).toBeTruthy())

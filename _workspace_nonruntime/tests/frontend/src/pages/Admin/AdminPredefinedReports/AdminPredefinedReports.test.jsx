@@ -25,7 +25,7 @@ describe('AdminPredefinedReports page', () => {
   it('surfaces blob-backed API errors instead of a generic failure message', async () => {
     render(<AdminPredefinedReports />)
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Generate' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Generate & Download' })[0])
 
     await waitFor(() => expect(screen.getByText('Unknown report slug')).toBeTruthy())
   })
@@ -38,7 +38,7 @@ describe('AdminPredefinedReports page', () => {
 
     render(<AdminPredefinedReports />)
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Generate' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Generate & Download' })[0])
 
     await waitFor(() => expect(screen.getByText('Downloaded Test Performance Summary as CSV.')).toBeTruthy())
     expect(generatePredefinedReport).toHaveBeenCalledWith('test-performance')

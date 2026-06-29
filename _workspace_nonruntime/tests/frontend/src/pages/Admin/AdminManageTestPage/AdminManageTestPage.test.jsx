@@ -155,7 +155,7 @@ describe('AdminManageTestPage', () => {
 
     renderPage()
 
-    await waitFor(() => expect(screen.getByText('Failed to load test data.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('offline')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
@@ -222,9 +222,9 @@ describe('AdminManageTestPage', () => {
     await screen.findByText('What is 2 + 2?')
 
     fireEvent.click(screen.getByRole('button', { name: /delete what is 2 \+ 2\?/i }))
-    fireEvent.click(screen.getByRole('button', { name: /confirm delete for what is 2 \+ 2\?/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm delete what is 2 \+ 2\?/i }))
 
-    expect(screen.getByRole('button', { name: /confirm delete for what is 2 \+ 2\?/i }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /confirm delete what is 2 \+ 2\?/i }).disabled).toBe(true)
 
     resolveDelete({ data: { detail: 'Deleted' } })
 

@@ -83,7 +83,7 @@ describe('Auth recovery pages', () => {
 
     renderWithRouter(<SignUp />, '/signup')
 
-    await waitFor(() => expect(screen.getByText('Unable to verify self-registration availability right now. Please try again later.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not check registration availability. Please try again later.')).toBeTruthy())
     expect(screen.getByPlaceholderText('Full name').disabled).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry availability check' }))

@@ -61,7 +61,7 @@ describe('QuestionPoolDetail instructor permissions', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Shared Algebra Pool')).toBeTruthy())
-    expect(screen.getByText('Read-only pool. Only the owner or an admin can edit this question bank.')).toBeTruthy()
+    expect(screen.getByText('Read-only. You do not have permission to edit this pool.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Edit Pool' })).toBeNull()
     expect(screen.queryByRole('button', { name: '+ Add Question' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
@@ -96,7 +96,7 @@ describe('QuestionPoolDetail instructor permissions', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Shared Algebra Pool')).toBeTruthy())
-    expect(screen.getByText('Failed to load questions for this pool.')).toBeTruthy()
+    expect(screen.getByText('Could not load questions.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(screen.getByText('Correct answer: 4')).toBeTruthy())
   })

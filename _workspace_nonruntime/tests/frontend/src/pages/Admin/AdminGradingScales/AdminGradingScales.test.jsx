@@ -35,13 +35,13 @@ describe('AdminGradingScales', () => {
   it('blocks saving when a band minimum score exceeds its maximum', async () => {
     render(<AdminGradingScales />)
 
-    await waitFor(() => expect(screen.getByText('No grading scales yet.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No grading scales yet')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: '+ New Scale' }))
     fireEvent.change(screen.getByLabelText('Scale Name'), { target: { value: 'Standard Letter' } })
     fireEvent.change(screen.getByLabelText('Band 1 minimum score'), { target: { value: '95' } })
     fireEvent.change(screen.getByLabelText('Band 1 maximum score'), { target: { value: '90' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save scale' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save Scale' }))
 
     await waitFor(() => expect(screen.getByText('Band minimum scores cannot exceed the maximum.')).toBeTruthy())
     expect(createGradingScaleMock).not.toHaveBeenCalled()
@@ -50,12 +50,12 @@ describe('AdminGradingScales', () => {
   it('blocks saving when grade bands overlap', async () => {
     render(<AdminGradingScales />)
 
-    await waitFor(() => expect(screen.getByText('No grading scales yet.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No grading scales yet')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: '+ New Scale' }))
     fireEvent.change(screen.getByLabelText('Scale Name'), { target: { value: 'Standard Letter' } })
     fireEvent.change(screen.getByLabelText('Band 2 maximum score'), { target: { value: '95' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save scale' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save Scale' }))
 
     await waitFor(() => expect(screen.getByText('Grade bands cannot overlap.')).toBeTruthy())
     expect(createGradingScaleMock).not.toHaveBeenCalled()
@@ -78,7 +78,7 @@ describe('AdminGradingScales', () => {
 
     await waitFor(() => expect(screen.getByText('Standard Letter')).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText('Search scales'), {
+    fireEvent.change(screen.getByLabelText('Search grading scales'), {
       target: { value: 'custom' },
     })
 

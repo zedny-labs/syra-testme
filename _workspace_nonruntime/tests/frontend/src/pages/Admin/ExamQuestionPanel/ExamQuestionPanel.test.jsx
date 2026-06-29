@@ -51,7 +51,7 @@ describe('ExamQuestionPanel', () => {
     fireEvent.change(screen.getByPlaceholderText('Enter question...'), { target: { value: 'What is 2 + 2?' } })
 
     expect(screen.getByRole('button', { name: 'Add Question' }).disabled).toBe(true)
-    expect(screen.getByText('Add at least two answer options.')).toBeTruthy()
+    expect(screen.getByText('At least 2 options are required')).toBeTruthy()
 
     fireEvent.change(screen.getByPlaceholderText('Option A'), { target: { value: '4' } })
     fireEvent.change(screen.getByPlaceholderText('Option B'), { target: { value: '5' } })
@@ -72,7 +72,7 @@ describe('ExamQuestionPanel', () => {
   it('keeps quick-add disabled until the test exists', () => {
     render(<ExamQuestionPanel examId="" questions={[]} onUpdate={vi.fn()} />)
 
-    expect(screen.getByText('Save the test first to unlock the editor')).toBeTruthy()
+    expect(screen.getByText('Save the test first, then add questions here.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add Multiple Choice' }).disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'Add Text / Essay' }).disabled).toBe(true)
   })

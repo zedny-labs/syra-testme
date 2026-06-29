@@ -62,7 +62,7 @@ describe('AdminCandidates', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('Failed to load candidates data')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Failed to load candidate attempts.')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
