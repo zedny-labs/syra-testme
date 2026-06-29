@@ -280,6 +280,12 @@ def test_list_exams_orders_newest_first():
         def all():
             return []
 
+        def unique(self):
+            return self
+
+        def scalars(self):
+            return self
+
     class DummySession:
         def __init__(self):
             self.query = None
@@ -317,6 +323,12 @@ def test_list_exams_applies_custom_search_and_sort_for_learner():
         def all():
             return []
 
+        def unique(self):
+            return self
+
+        def scalars(self):
+            return self
+
     class DummySession:
         def __init__(self):
             self.query = None
@@ -352,7 +364,11 @@ def test_list_exams_applies_custom_search_and_sort_for_learner():
     assert "exams.status" in query_text.lower()
     assert ":status_" in query_text
     normalized_query_text = query_text.lower()
-    assert "exists (select" in normalized_query_text
+    # The learner catalog scopes to scheduled exams via a JOIN against the
+    # learner's own schedules (replaced the earlier EXISTS subquery during the
+    # query refactor); the access semantics are unchanged.
+    assert "schedules.user_id" in normalized_query_text
+    assert "schedules.scheduled_at" in normalized_query_text
     assert "lower(exams.title)" in normalized_query_text
 
 
@@ -368,6 +384,12 @@ def test_list_exams_prefers_page_over_skip_when_both_provided():
         @staticmethod
         def all():
             return []
+
+        def unique(self):
+            return self
+
+        def scalars(self):
+            return self
 
     class DummySession:
         def __init__(self):
@@ -1536,6 +1558,9 @@ def test_custom_report_rows_use_canonical_tests_and_exclude_pool_library_records
     class DummyScalarResult:
         def __init__(self, rows):
             self.rows = rows
+
+        def unique(self):
+            return self
 
         def all(self):
             return self.rows
