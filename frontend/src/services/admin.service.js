@@ -62,6 +62,11 @@ export const adminApi = {
   addQuestion: (data) => api.post('questions/', data),
   updateQuestion: (id, data) => api.put(`questions/${id}`, data),
   deleteQuestion: (id) => api.delete(`questions/${id}`),
+  uploadQuestionImage: (file) => {
+    const data = new FormData()
+    data.append('file', file)
+    return api.post('questions/image', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
 
   // Users
   users: (params, opts) => api.get('users/', { params, ...opts }),
