@@ -2,18 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { adminApi } from '../../../services/admin.service'
 import AdminPageHeader from '../AdminPageHeader/AdminPageHeader'
-import QuestionTypeFields from '../../../components/QuestionTypeFields/QuestionTypeFields'
-import QuestionImageUpload from '../../../components/QuestionImageUpload/QuestionImageUpload'
-import {
-  normalizeQuestionType,
-  emptyAnswerState,
-  questionToAnswerState,
-  answerStateToPayload,
-  validateAnswerState,
-} from '../../../utils/questionPayload'
 import useAuth from '../../../hooks/useAuth'
 import useLanguage from '../../../hooks/useLanguage'
 import styles from './QuestionPoolDetail.module.scss'
+import QuestionImageUpload from '../../../components/QuestionImageUpload/QuestionImageUpload'
 
 const POOL_QUESTION_TYPES = [
   { value: 'MCQ', labelKey: 'question_type_mcq' },
@@ -25,12 +17,38 @@ const POOL_QUESTION_TYPES = [
   { value: 'MATCHING', labelKey: 'admin_wizard_qtype_matching' },
 ]
 
+const MCQ_TYPES = new Set(['MCQ', 'MULTI'])
+
 const blankQuestion = (questionType = 'MCQ') => ({
   text: '',
   question_type: questionType,
-  answer: emptyAnswerState(questionType),
+  options: MCQ_TYPES.has(questionType) ? ['', '', '', ''] : questionType === 'TRUEFALSE' ? ['True', 'False'] : [],
+  correct_answer: questionType === 'TRUEFALSE' ? 'True' : '',
   image_url: null,
 })
+
+const normalizeQuestionType = (questionType) => {
+  if (questionType === 'TRUE_FALSE') return 'TRUEFALSE'
+  if (questionType === 'SHORT_ANSWER') return 'TEXT'
+  if (questionType === 'FILL_IN_BLANK') return 'FILLINBLANK'
+  if (questionType === 'MULTIPLE_CHOICE') return 'MULTI'
+  return questionType || 'MCQ'
+}
+
+const normalizePoolQuestion = (question) => {
+  const questionType = normalizeQuestionType(question?.question_type || question?.type)
+  return {
+    text: question?.text || '',
+    question_type: questionType,
+    options: MCQ_TYPES.has(questionType)
+      ? (question?.options && question.options.length ? question.options : ['', '', '', ''])
+      : questionType === 'TRUEFALSE'
+        ? ['True', 'False']
+        : [],
+    correct_answer: question?.correct_answer || (questionType === 'TRUEFALSE' ? 'True' : ''),
+    image_url: question?.image_url ?? null,
+  }
+}
 
 function resolveError(err, fallback) {
   if (err?.userMessage) return err.userMessage
@@ -105,20 +123,17 @@ export default function QuestionPoolDetail() {
     event.preventDefault()
     setError('')
     setNotice('')
-    const validationKey = validateAnswerState(form.question_type, form.answer)
-    if (validationKey) {
-      setError(t(validationKey))
-      setSaving(false)
-      return
-    }
     setSaving(true)
     try {
-      const { options, correct_answer } = answerStateToPayload(form.question_type, form.answer)
       const payload = {
         text: form.text,
         question_type: form.question_type,
-        correct_answer,
-        options,
+        correct_answer: form.correct_answer || null,
+        options: form.question_type === 'MCQ'
+          ? (form.options || []).map((option) => option.trim()).filter(Boolean)
+          : form.question_type === 'TRUEFALSE'
+            ? ['True', 'False']
+            : null,
         image_url: form.image_url || null,
       }
       if (editingId) {
@@ -140,13 +155,7 @@ export default function QuestionPoolDetail() {
   }
 
   const startEdit = (question) => {
-    const questionType = normalizeQuestionType(question?.question_type || question?.type)
-    setForm({
-      text: question?.text || '',
-      question_type: questionType,
-      answer: questionToAnswerState(question),
-      image_url: question.image_url ?? null,
-    })
+    setForm(normalizePoolQuestion(question))
     setEditingId(question.id)
     setShowForm(true)
     setError('')
@@ -192,6 +201,12 @@ export default function QuestionPoolDetail() {
       setSavingPool(false)
     }
   }
+
+  const setOption = (index, value) => setForm((current) => {
+    const options = [...(current.options || [])]
+    options[index] = value
+    return { ...current, options }
+  })
 
   return (
     <div className={styles.page}>
@@ -274,9 +289,9 @@ export default function QuestionPoolDetail() {
               className={styles.select}
               value={form.question_type}
               onChange={(event) => setForm((current) => ({
+                ...blankQuestion(event.target.value),
                 text: current.text,
-                question_type: event.target.value,
-                answer: emptyAnswerState(event.target.value),
+                image_url: current.image_url,
               }))}
             >
               {POOL_QUESTION_TYPES.map((type) => (
@@ -284,13 +299,34 @@ export default function QuestionPoolDetail() {
               ))}
             </select>
 
-            <QuestionTypeFields
-              type={form.question_type}
-              state={form.answer}
-              onChange={(answer) => setForm((current) => ({ ...current, answer }))}
-              disabled={saving}
-              t={t}
-            />
+            {form.question_type === 'MCQ' && (
+              <>
+                <label className={styles.label} htmlFor="pool-question-option-0">{t('admin_pool_detail_options')}</label>
+                {(form.options || []).map((option, index) => (
+                  <input key={index} id={`pool-question-option-${index}`} className={styles.input} placeholder={`Option ${index + 1}`} value={option} onChange={(event) => setOption(index, event.target.value)} />
+                ))}
+                <label className={styles.label} htmlFor="pool-question-correct-answer">{t('admin_pool_detail_correct_answer')}</label>
+                <input id="pool-question-correct-answer" className={styles.input} value={form.correct_answer} onChange={(event) => setForm((current) => ({ ...current, correct_answer: event.target.value }))} placeholder={t('admin_pool_detail_match_option')} />
+              </>
+            )}
+
+            {form.question_type === 'TRUEFALSE' && (
+              <>
+                <label className={styles.label} htmlFor="pool-question-boolean-answer">{t('admin_pool_detail_correct_answer')}</label>
+                <select id="pool-question-boolean-answer" className={styles.select} value={form.correct_answer} onChange={(event) => setForm((current) => ({ ...current, correct_answer: event.target.value }))}>
+                  <option value="">{t('admin_pool_detail_select')}</option>
+                  <option value="True">{t('bool_true')}</option>
+                  <option value="False">{t('bool_false')}</option>
+                </select>
+              </>
+            )}
+
+            {form.question_type === 'TEXT' && (
+              <>
+                <label className={styles.label} htmlFor="pool-question-expected-answer">{t('admin_pool_detail_expected_answer')}</label>
+                <input id="pool-question-expected-answer" className={styles.input} value={form.correct_answer} onChange={(event) => setForm((current) => ({ ...current, correct_answer: event.target.value }))} />
+              </>
+            )}
 
             <div className={styles.formActions}>
               <button className={styles.btnPrimary} type="submit" disabled={saving}>{saving ? t('saving') : (editingId ? t('update') : t('admin_pool_detail_add_question'))}</button>

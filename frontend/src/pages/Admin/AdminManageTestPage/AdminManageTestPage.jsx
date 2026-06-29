@@ -12,12 +12,6 @@ import { readBlobErrorMessage } from '../../../utils/httpErrors'
 import { normalizeProctoringConfig } from '../../../utils/proctoringRequirements'
 import { readPaginatedItems } from '../../../utils/pagination'
 import useLanguage from '../../../hooks/useLanguage'
-import {
-  emptyAnswerState,
-  questionToAnswerState,
-  answerStateToPayload,
-  validateAnswerState,
-} from '../../../utils/questionPayload'
 import AdministrationTab from './tabs/AdministrationTab'
 import CandidatesTab from './tabs/CandidatesTab'
 import ProctoringTab from './tabs/ProctoringTab'
@@ -328,14 +322,15 @@ function readRequestError(error, fallback) {
   return error?.message || fallback
 }
 
-const emptyQuestionForm = () => ({
+const EMPTY_QUESTION_FORM = {
   text: '',
   question_type: 'MCQ',
-  answer: emptyAnswerState('MCQ'),
+  options_text: '',
+  correct_answer: '',
   points: '1',
   order: '0',
   image_url: null,
-})
+}
 
 const EMPTY_SESSION_FORM = {
   user_id: '',
@@ -868,7 +863,7 @@ export default function AdminManageTestPage() {
   const [certificateSyncLoading, setCertificateSyncLoading] = useState(false)
   const [certificateSyncError, setCertificateSyncError] = useState('')
 
-  const [questionForm, setQuestionForm] = useState(emptyQuestionForm())
+  const [questionForm, setQuestionForm] = useState(EMPTY_QUESTION_FORM)
   const [editingQuestionId, setEditingQuestionId] = useState('')
   const [questionSearch, setQuestionSearch] = useState('')
   const [questionBusy, setQuestionBusy] = useState(false)
@@ -1916,14 +1911,15 @@ export default function AdminManageTestPage() {
     }
   }
 
-  const resetQuestionForm = () => { setQuestionForm(emptyQuestionForm()); setEditingQuestionId('') }
+  const resetQuestionForm = () => { setQuestionForm(EMPTY_QUESTION_FORM); setEditingQuestionId('') }
 
   const startEditQuestion = (q) => {
     setEditingQuestionId(String(q.id))
     setQuestionForm({
       text: q.text || '',
       question_type: questionTypeOf(q),
-      answer: questionToAnswerState(q),
+      options_text: Array.isArray(q.options) ? q.options.join('\n') : '',
+      correct_answer: q.correct_answer || '',
       points: String(q.points ?? 1),
       order: String(q.order ?? 0),
       image_url: q.image_url ?? null,
@@ -1932,7 +1928,11 @@ export default function AdminManageTestPage() {
   }
 
   const handleQuestionTypeChange = (value) => {
-    setQuestionForm((prev) => ({ ...prev, question_type: value, answer: emptyAnswerState(value) }))
+    if (value === 'TRUEFALSE') {
+      setQuestionForm((prev) => ({ ...prev, question_type: value, options_text: 'True\nFalse', correct_answer: prev.correct_answer || 'A' }))
+      return
+    }
+    setQuestionForm((prev) => ({ ...prev, question_type: value }))
   }
 
   const handleQuestionSubmit = async (e) => {
@@ -1940,20 +1940,21 @@ export default function AdminManageTestPage() {
     setQuestionBusy(true)
     try {
       const qType = questionForm.question_type
-      const { options, correct_answer } = answerStateToPayload(qType, questionForm.answer)
+      const needsOptions = ['MCQ', 'MULTI', 'TRUEFALSE'].includes(qType)
+      const options = questionForm.options_text.split('\n').map((x) => x.trim()).filter(Boolean)
       const payload = {
         text: questionForm.text.trim(),
         question_type: qType,
-        options,
-        correct_answer,
+        options: needsOptions ? options : null,
+        correct_answer: needsOptions ? (questionForm.correct_answer || '').trim() : null,
         points: Number(questionForm.points || 1),
         order: Number(questionForm.order || 0),
         image_url: questionForm.image_url || null,
       }
       if (!payload.text) throw new Error(t('admin_manage_err_question_text_required'))
       if (!Number.isFinite(payload.points) || payload.points <= 0) throw new Error(t('admin_manage_err_points_positive'))
-      const answerErrorKey = validateAnswerState(qType, questionForm.answer)
-      if (answerErrorKey) throw new Error(t(answerErrorKey))
+      if (needsOptions && payload.options.length < 2) throw new Error(t('admin_manage_err_min_options'))
+      if (needsOptions && !payload.correct_answer) throw new Error(t('admin_manage_err_correct_answer_required'))
 
       if (editingQuestionId) {
         await adminApi.updateQuestion(editingQuestionId, payload)
@@ -3964,6 +3965,92 @@ export default function AdminManageTestPage() {
             startEditQuestion={startEditQuestion}
             handleDeleteQuestion={handleDeleteQuestion}
           />
+        )}
+
+        {false && tab === 'sections' && (
+          <section className={styles.full}>
+            <h3 className={styles.tabPanelHeader}>{t('admin_manage_fallback_questions_heading')} <span className={styles.countPill}>{questions.length}</span></h3>
+            <div className={styles.row}>
+              <label>{t('admin_manage_search_questions')}<input placeholder={t('admin_manage_search_placeholder')} value={questionSearch} onChange={(e) => setQuestionSearch(e.target.value)} /></label>
+              <label>{t('admin_manage_total_questions')}<input readOnly value={String(questions.length)} /></label>
+            </div>
+            <form className={styles.sectionCard} onSubmit={handleQuestionSubmit}>
+              <div className={styles.sectionHeader}>{editingQuestionId ? t('admin_manage_edit_question_title') : t('admin_manage_add_question_title')}</div>
+              <div className={styles.row}>
+                <label>{t('type')}
+                  <select value={questionForm.question_type} disabled={lockedExamFields} onChange={(e) => handleQuestionTypeChange(e.target.value)}>
+                    {QUESTION_TYPES.map((qt) => <option key={qt} value={qt}>{qt}</option>)}
+                  </select>
+                </label>
+              </div>
+              <label>{t('admin_manage_question_text_label')}<textarea rows={3} value={questionForm.text} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, text: e.target.value }))} /></label>
+              {questionForm.question_type === 'ORDERING' && (
+                <div className={styles.typeHint}>Enter items in order, one per line. The correct order is top-to-bottom. Leave <em>correct_answer</em> blank (auto-derived).</div>
+              )}
+              {questionForm.question_type === 'FILLINBLANK' && (
+                <div className={styles.typeHint}>Use <code>[blank]</code> in the question text as a placeholder. Enter each acceptable answer on its own line in the options field.</div>
+              )}
+              {questionForm.question_type === 'MATCHING' && (
+                <div className={styles.typeHint}>Enter pairs as <code>Left | Right</code>, one pair per line (e.g., <em>Capital | Country</em>). Set correct_answer to the matched pair indices.</div>
+              )}
+              {questionForm.question_type === 'TEXT' && (
+                <div className={styles.typeHint}>Open-ended text question. No options required. Enter a model/expected answer in correct_answer for reference grading.</div>
+              )}
+              {['MCQ', 'MULTI', 'TRUEFALSE', 'ORDERING', 'FILLINBLANK', 'MATCHING'].includes(questionForm.question_type) && (
+                <label>
+                  {questionForm.question_type === 'MATCHING' ? 'Pairs (Left | Right, one per line)' : questionForm.question_type === 'FILLINBLANK' ? 'Acceptable answers (one per line)' : 'Options (one per line)'}
+                  <textarea rows={4} value={questionForm.options_text} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, options_text: e.target.value }))} />
+                </label>
+              )}
+              <label>
+                {questionForm.question_type === 'ORDERING' ? 'Correct order (comma-separated indices, e.g. 1,3,2)' : questionForm.question_type === 'MATCHING' ? 'Correct matching (e.g. A-1,B-2)' : 'Correct answer'}
+                <input value={questionForm.correct_answer} disabled={lockedExamFields || questionForm.question_type === 'ORDERING'} onChange={(e) => setQuestionForm((p) => ({ ...p, correct_answer: e.target.value }))} />
+              </label>
+              <div className={styles.row}>
+                <label>{t('admin_manage_points_label')}<input type="number" step="0.5" min="0.5" value={questionForm.points} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, points: e.target.value }))} /></label>
+                <label>{t('admin_manage_order_label')}<input type="number" min="0" value={questionForm.order} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, order: e.target.value }))} /></label>
+              </div>
+              <div className={styles.inlineActions}>
+                <button type="submit" className={styles.blueBtn} disabled={questionBusy || lockedExamFields}>{questionBusy ? t('saving') : editingQuestionId ? t('admin_manage_btn_update_question') : t('admin_manage_btn_add_question')}</button>
+                <button type="button" className={styles.ghostBtn} onClick={resetQuestionForm}>{t('reset')}</button>
+              </div>
+            </form>
+            <div className={styles.tableCard}>
+              <table className={styles.table}>
+                <thead><tr><th>{t('admin_manage_th_order')}</th><th>{t('admin_manage_th_type')}</th><th>{t('admin_manage_th_question')}</th><th>{t('admin_manage_th_points')}</th><th>{t('admin_manage_th_actions')}</th></tr></thead>
+                <tbody>
+                  {filteredQuestions.length === 0 ? (
+                    <tr><td colSpan={5}>{t('admin_manage_no_questions')}</td></tr>
+                  ) : filteredQuestions.map((q) => (
+                    <tr key={q.id}>
+                      <td>{q.order ?? 0}</td>
+                      <td>{questionTypeOf(q)}</td>
+                      <td>{q.text}</td>
+                      <td>{q.points ?? 1}</td>
+                      <td className={styles.actionsCell}>
+                        <button type="button" disabled={lockedExamFields || deletingQuestionBusyId === q.id} onClick={() => startEditQuestion(q)}>{t('edit')}</button>
+                        {deleteQuestionId === q.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.dangerInlineBtn}
+                              disabled={lockedExamFields || deletingQuestionBusyId === q.id}
+                              onClick={() => handleDeleteQuestion(q.id)}
+                            >
+                              {deletingQuestionBusyId === q.id ? t('admin_manage_deleting') : t('confirm_delete')}
+                            </button>
+                            <button type="button" disabled={deletingQuestionBusyId === q.id} onClick={() => setDeleteQuestionId(null)}>{t('cancel')}</button>
+                          </>
+                        ) : (
+                          <button type="button" disabled={lockedExamFields || deletingQuestionBusyId === q.id} onClick={() => handleDeleteQuestion(q.id)}>{t('delete')}</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         {tab === 'sessions' && (
