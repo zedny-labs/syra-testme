@@ -22,3 +22,21 @@ def test_question_base_image_url_defaults_to_none():
         correct_answer="A",
     )
     assert q.image_url is None
+
+
+from app.services.sanitization import sanitize_question_payload
+
+
+def test_sanitize_keeps_valid_image_url():
+    out = sanitize_question_payload({"text": "Q", "image_url": "/api/media/questions/q_abc123.png"})
+    assert out["image_url"] == "/api/media/questions/q_abc123.png"
+
+
+def test_sanitize_drops_foreign_image_url():
+    out = sanitize_question_payload({"text": "Q", "image_url": "https://evil.example.com/x.png"})
+    assert out["image_url"] is None
+
+
+def test_sanitize_drops_blank_image_url():
+    out = sanitize_question_payload({"text": "Q", "image_url": "  "})
+    assert out["image_url"] is None

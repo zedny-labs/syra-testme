@@ -1,9 +1,22 @@
+import re
 from copy import deepcopy
 from typing import Any
 
 import bleach
 
 ALLOWED_HTML_TAGS = ["b", "i", "u", "p", "br", "ul", "ol", "li", "strong", "em"]
+
+QUESTION_IMAGE_URL_RE = re.compile(r"^/api/media/questions/[A-Za-z0-9._-]+$")
+
+
+def sanitize_image_reference(value: str | None) -> str | None:
+    """Only accept image references our own upload endpoint produced."""
+    if value is None:
+        return None
+    candidate = str(value).strip()
+    if QUESTION_IMAGE_URL_RE.match(candidate):
+        return candidate
+    return None
 
 
 def sanitize_plain_text(value: str | None) -> str | None:
@@ -46,6 +59,8 @@ def sanitize_question_payload(payload: dict[str, Any]) -> dict[str, Any]:
         cleaned["options"] = sanitize_string_list(cleaned.get("options"))
     if "correct_answer" in cleaned:
         cleaned["correct_answer"] = sanitize_html_fragment(cleaned.get("correct_answer"))
+    if "image_url" in cleaned:
+        cleaned["image_url"] = sanitize_image_reference(cleaned.get("image_url"))
     return cleaned
 
 
