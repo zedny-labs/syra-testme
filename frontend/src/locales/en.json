@@ -4014,6 +4014,7 @@
   "qtf_ordering_items": "Items in correct order",
   "qtf_ordering_help": "Drag the handle (or use the arrows) to set the correct order, top to bottom. Items are shuffled for the learner.",
   "qtf_item": "Item",
+  "qtf_item_placeholder": "Type an item…",
   "qtf_move_up": "Move up",
   "qtf_move_down": "Move down",
   "qtf_drag_reorder": "Drag to reorder",

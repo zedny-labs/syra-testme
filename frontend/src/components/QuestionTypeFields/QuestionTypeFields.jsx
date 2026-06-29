@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react'
-import { normalizeQuestionType } from '../../utils/questionPayload'
+import { normalizeQuestionType, moveOption } from '../../utils/questionPayload'
 import styles from './QuestionTypeFields.module.scss'
 
 const CHOICE_TYPES = new Set(['MCQ', 'MULTI'])
@@ -191,19 +191,14 @@ export default function QuestionTypeFields({ type, state, onChange, disabled = f
   // ---- ORDERING ----
   if (normalized === 'ORDERING') {
     const options = state.options || []
-    const move = (index, delta) => {
-      const target = index + delta
-      if (target < 0 || target >= options.length) return
-      const next = [...options]
-      ;[next[index], next[target]] = [next[target], next[index]]
-      setState({ ...state, options: next })
+    const reorder = (from, to) => {
+      if (to < 0 || to >= options.length) return
+      setState({ ...state, options: moveOption(options, from, to) })
     }
-    const dropOnto = (targetIndex) => {
-      if (dragIndex === null || dragIndex === targetIndex) { setDragIndex(null); return }
-      const next = [...options]
-      const [moved] = next.splice(dragIndex, 1)
-      next.splice(targetIndex, 0, moved)
-      setState({ ...state, options: next })
+    const handleDrop = (targetIndex) => {
+      if (dragIndex !== null && dragIndex !== targetIndex) {
+        setState({ ...state, options: moveOption(options, dragIndex, targetIndex) })
+      }
       setDragIndex(null)
     }
     return (
@@ -214,24 +209,33 @@ export default function QuestionTypeFields({ type, state, onChange, disabled = f
           <div
             key={index}
             className={`${styles.optionRow} ${dragIndex === index ? styles.dragging : ''}`}
-            draggable={!disabled}
-            onDragStart={() => setDragIndex(index)}
-            onDragOver={(e) => { e.preventDefault() }}
-            onDrop={() => dropOnto(index)}
-            onDragEnd={() => setDragIndex(null)}
+            onDragOver={(e) => { if (dragIndex !== null) { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
+            onDrop={(e) => { e.preventDefault(); handleDrop(index) }}
           >
-            <span className={styles.dragHandle} aria-hidden="true" title={tr('qtf_drag_reorder', 'Drag to reorder')}>⠿</span>
+            <span
+              className={styles.dragHandle}
+              title={tr('qtf_drag_reorder', 'Drag to reorder')}
+              draggable={!disabled}
+              onDragStart={(e) => {
+                setDragIndex(index)
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', String(index))
+              }}
+              onDragEnd={() => setDragIndex(null)}
+            >
+              ⠿
+            </span>
             <span className={styles.optionLetter}>{index + 1}</span>
             <input
               type="text"
               className={styles.textInput}
               value={option}
               onChange={(e) => setOption(index, e.target.value)}
-              placeholder={`${tr('qtf_item', 'Item')} ${index + 1}`}
+              placeholder={tr('qtf_item_placeholder', 'Type an item…')}
               disabled={disabled}
             />
-            <button type="button" className={styles.moveBtn} onClick={() => move(index, -1)} disabled={disabled || index === 0} aria-label={tr('qtf_move_up', 'Move up')} title={tr('qtf_move_up', 'Move up')}>↑</button>
-            <button type="button" className={styles.moveBtn} onClick={() => move(index, 1)} disabled={disabled || index === options.length - 1} aria-label={tr('qtf_move_down', 'Move down')} title={tr('qtf_move_down', 'Move down')}>↓</button>
+            <button type="button" className={styles.moveBtn} onClick={() => reorder(index, index - 1)} disabled={disabled || index === 0} aria-label={tr('qtf_move_up', 'Move up')} title={tr('qtf_move_up', 'Move up')}>↑</button>
+            <button type="button" className={styles.moveBtn} onClick={() => reorder(index, index + 1)} disabled={disabled || index === options.length - 1} aria-label={tr('qtf_move_down', 'Move down')} title={tr('qtf_move_down', 'Move down')}>↓</button>
             <button
               type="button"
               className={styles.removeBtn}

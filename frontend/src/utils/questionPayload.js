@@ -145,6 +145,19 @@ export function answerStateToPayload(type, state) {
   return { options, correct_answer: null }
 }
 
+// Move the item at `from` to `to`, preserving the rest of the order.
+// Used by ORDERING for both the up/down arrows and drag-and-drop. Returns a
+// new array; invalid indices (out of range) yield an unchanged copy.
+export function moveOption(options, from, to) {
+  const list = [...(options || [])]
+  if (from < 0 || from >= list.length || to < 0 || to >= list.length || from === to) {
+    return list
+  }
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+  return list
+}
+
 export function validateAnswerState(type, state) {
   const normalized = normalizeQuestionType(type)
   const { options, correct_answer } = answerStateToPayload(normalized, state)

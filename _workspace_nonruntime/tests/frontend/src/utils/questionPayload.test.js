@@ -6,6 +6,7 @@ import {
   questionToAnswerState,
   answerStateToPayload,
   validateAnswerState,
+  moveOption,
 } from './questionPayload'
 
 describe('normalizeQuestionType', () => {
@@ -163,6 +164,32 @@ describe('questionToAnswerState', () => {
     const payload = { options: ['2', '3', '4', '6'], correct_answer: '2,3' }
     const state = questionToAnswerState({ question_type: 'MULTI', ...payload })
     expect(answerStateToPayload('MULTI', state)).toEqual(payload)
+  })
+})
+
+describe('moveOption', () => {
+  it('moves an item down one position (arrow down / drag)', () => {
+    expect(moveOption(['a', 'b', 'c'], 0, 1)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('moves an item up one position (arrow up)', () => {
+    expect(moveOption(['a', 'b', 'c'], 2, 1)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('moves an item across multiple positions (drag from top to bottom)', () => {
+    expect(moveOption(['a', 'b', 'c', 'd'], 0, 3)).toEqual(['b', 'c', 'd', 'a'])
+  })
+
+  it('returns an unchanged copy when from === to', () => {
+    const input = ['a', 'b']
+    const result = moveOption(input, 1, 1)
+    expect(result).toEqual(['a', 'b'])
+    expect(result).not.toBe(input)
+  })
+
+  it('returns an unchanged copy when an index is out of range', () => {
+    expect(moveOption(['a', 'b'], 1, 5)).toEqual(['a', 'b'])
+    expect(moveOption(['a', 'b'], -1, 0)).toEqual(['a', 'b'])
   })
 })
 
