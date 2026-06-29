@@ -9,13 +9,16 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ...core.config import get_settings
 from ...models import Question, Exam, ExamStatus, RoleEnum
 from ...schemas import QuestionCreate, QuestionRead, QuestionBase, Message
 from ...services.sanitization import sanitize_question_payload
+from ...services.supabase_storage import upload_bytes as upload_bytes_to_supabase
 from ...core.i18n import translate as _t
 from ..deps import ensure_exam_owner, ensure_permission, get_current_user, get_db_dep, learner_can_access_exam, require_permission
 
 router = APIRouter()
+settings = get_settings()
 
 QUESTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 QUESTION_IMAGE_CONTENT_TYPES = {
@@ -45,6 +48,28 @@ def _learner_question_response(question: Question) -> dict:
         update={"correct_answer": None}
     )
     return jsonable_encoder(masked, by_alias=True)
+
+
+@router.post("/image")
+async def upload_question_image(
+    file: UploadFile = File(...),
+    current=Depends(require_permission("Edit Tests", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
+):
+    content = await file.read()
+    _validate_question_image(file.content_type, len(content))
+    if not content:
+        raise HTTPException(status_code=400, detail=_t("question_image_empty"))
+
+    ext = QUESTION_IMAGE_CONTENT_TYPES[file.content_type]
+    filename = f"q_{uuid.uuid4().hex}{ext}"
+
+    if settings.MEDIA_STORAGE_PROVIDER == "supabase":
+        await upload_bytes_to_supabase("questions", filename, content, content_type=file.content_type)
+    else:
+        QUESTIONS_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        (QUESTIONS_STORAGE_DIR / filename).write_bytes(content)
+
+    return {"image_url": f"/api/media/questions/{filename}"}
 
 
 @router.post("/", response_model=QuestionRead)
