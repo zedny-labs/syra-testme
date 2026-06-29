@@ -196,7 +196,8 @@ def test_ocr_falls_back_to_easyocr_when_tesseract_is_unavailable(monkeypatch):
 
     class DummyReader:
         def __init__(self, langs, gpu):
-            assert langs == ["en"]
+            # Egyptian IDs carry Arabic text, so the reader is built for ar+en.
+            assert langs == ["ar", "en"]
             assert gpu is False
 
         def readtext(self, _img, detail=0):
