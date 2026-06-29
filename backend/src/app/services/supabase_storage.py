@@ -9,7 +9,7 @@ import httpx
 from ..core.config import get_settings
 
 settings = get_settings()
-_KNOWN_OBJECT_FOLDERS = {"identity", "evidence", "reports", "videos"}
+_KNOWN_OBJECT_FOLDERS = {"identity", "evidence", "reports", "videos", "questions"}
 
 
 def supabase_storage_configured() -> bool:
