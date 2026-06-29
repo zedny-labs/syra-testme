@@ -404,7 +404,7 @@ export default function Login() {
           {loading ? t('login_logging_in') : t('sign_in')}
         </button>
 
-        {showDevTools && (
+        {showDevTools && devUsers?.admin && devUsers?.learner && (
           <div className={styles.devTools}>
             <div className={styles.devToolsHeader}>
               <strong>Dev Tools</strong>
