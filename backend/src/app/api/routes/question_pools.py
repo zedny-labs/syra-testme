@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ...models import Course, CourseStatus, Exam, ExamStatus, ExamType, Node, Question, QuestionPool, RoleEnum
-from ...schemas import Message, QuestionBase, QuestionPoolCreate, QuestionPoolRead, QuestionRead
+from ...schemas import Message, QuestionBase, QuestionPoolCreate, QuestionPoolRead, QuestionRead, BulkQuestionsCreate, BulkQuestionsResult
 from ...services.audit import write_audit_log
 from ...services.normalized_relations import is_exam_pool_library, set_exam_library_pool
 from ...services.sanitization import sanitize_question_payload
@@ -18,6 +18,7 @@ from ..deps import get_db_dep, parse_uuid_param, require_permission
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+MAX_BULK_QUESTIONS = 1000
 
 
 def _is_pool_library_exam(exam: Exam, pool_id) -> bool:
@@ -363,6 +364,47 @@ def create_pool_question(
     db.commit()
     db.refresh(question)
     return question
+
+
+@router.post("/{pool_id}/questions/bulk", response_model=BulkQuestionsResult)
+def bulk_create_pool_questions(
+    pool_id: str,
+    body: BulkQuestionsCreate,
+    db: Session = Depends(get_db_dep),
+    current=Depends(require_permission("Manage Question Pools", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
+):
+    pool_pk = parse_uuid_param(pool_id, detail=_t("pool_not_found"))
+    pool = db.get(QuestionPool, pool_pk)
+    if not pool:
+        raise HTTPException(status_code=404, detail=_t("pool_not_found"))
+    if pool.created_by_id != current.id:
+        raise HTTPException(status_code=403, detail=_t("not_allowed"))
+    if not body.questions:
+        raise HTTPException(status_code=400, detail=_t("pool_bulk_empty"))
+    if len(body.questions) > MAX_BULK_QUESTIONS:
+        raise HTTPException(status_code=400, detail=_t("pool_bulk_too_many", max=MAX_BULK_QUESTIONS))
+
+    library_exam = _ensure_pool_library_exam(db, current, pool)
+    next_order = db.scalar(select(func.max(Question.order)).where(Question.pool_id == pool_pk)) or 0
+    now = datetime.now(timezone.utc)
+    for item in body.questions:
+        payload = sanitize_question_payload(item.model_dump())
+        next_order += 1
+        question = Question(
+            exam_id=library_exam.id,
+            text=payload["text"],
+            type=payload["type"],
+            options=payload.get("options"),
+            correct_answer=payload.get("correct_answer"),
+            points=payload["points"],
+            order=next_order,
+            pool_id=pool_pk,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(question)
+    db.commit()
+    return BulkQuestionsResult(created=len(body.questions))
 
 
 @router.put("/{pool_id}/questions/{question_id}", response_model=QuestionRead)
