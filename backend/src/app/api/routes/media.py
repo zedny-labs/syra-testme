@@ -22,6 +22,7 @@ REPORTS_DIR = BASE_STORAGE_DIR / "reports"
 VIDEO_DIR = BASE_STORAGE_DIR / "videos"
 EVIDENCE_DIR = BASE_STORAGE_DIR / "evidence"
 IDENTITY_DIR = BASE_STORAGE_DIR / "identity"
+QUESTIONS_DIR = BASE_STORAGE_DIR / "questions"
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -188,3 +189,15 @@ async def get_identity_photo(
         return await _redirect_supabase_media("identity", cleaned)
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_t("photo_not_found"))
+
+
+@router.get("/questions/{filename}")
+async def get_question_image(filename: str):
+    """Serve a question image. Public: filenames are unguessable random UUIDs."""
+    cleaned = _sanitize_filename(filename)
+    if settings.MEDIA_STORAGE_PROVIDER == "supabase":
+        return await _redirect_supabase_media("questions", cleaned)
+    file_path = QUESTIONS_DIR / cleaned
+    if not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_t("media_not_found"))
+    return FileResponse(path=file_path, filename=cleaned)
