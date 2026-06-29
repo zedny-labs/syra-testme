@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { adminApi } from '../../../services/admin.service'
 import useLanguage from '../../../hooks/useLanguage'
-import { mapRecords, rowsToRecords, templateInstructions, templateMatrix } from '../../../utils/parseQuestionRows'
+import { buildQuestions, templateAnswers, templateLegend, templateQuestions } from '../../../utils/parseQuestionRows'
 import styles from './AdminQuestionPools.module.scss'
 
 function resolveError(err, fallback) {
@@ -16,13 +16,13 @@ const REASON_KEYS = {
   missing_text: 'admin_pools_import_err_missing_text',
   unknown_type: 'admin_pools_import_err_unknown_type',
   missing_correct_answer: 'admin_pools_import_err_missing_answer',
-  answer_not_in_options: 'admin_pools_import_err_answer_not_in_options',
-  mcq_need_2_options: 'admin_pools_import_err_need_2_options',
-  ordering_need_2: 'admin_pools_import_err_need_2_options',
-  fillinblank_need_1: 'admin_pools_import_err_need_1_option',
-  matching_need_1: 'admin_pools_import_err_need_1_option',
+  need_2_options: 'admin_pools_import_err_need_2_options',
+  need_1_option: 'admin_pools_import_err_need_1_option',
   truefalse_answer: 'admin_pools_import_err_truefalse',
   matching_pair_format: 'admin_pools_import_err_matching_format',
+  one_correct: 'admin_pools_import_err_one_correct',
+  orphan_answer: 'admin_pools_import_err_orphan_answer',
+  duplicate_id: 'admin_pools_import_err_duplicate_id',
 }
 
 export default function BulkImportQuestionsModal({ pools, onClose, onImported }) {
@@ -48,10 +48,14 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
     try {
       const buffer = await file.arrayBuffer()
       const workbook = XLSX.read(buffer, { type: 'array' })
-      const sheetName = workbook.SheetNames.find((sheetTitle) => sheetTitle.toLowerCase() === 'questions') || workbook.SheetNames[0]
-      const sheet = workbook.Sheets[sheetName]
-      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', blankrows: false, raw: false })
-      const rows = mapRecords(rowsToRecords(matrix))
+      const pickSheet = (title) => {
+        const found = workbook.SheetNames.find((sheetTitle) => sheetTitle.toLowerCase() === title)
+        return found ? workbook.Sheets[found] : null
+      }
+      const toMatrix = (sheet) => (sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', blankrows: false, raw: false }) : [])
+      const questionsSheet = pickSheet('questions') || workbook.Sheets[workbook.SheetNames[0]]
+      const answersSheet = pickSheet('answers')
+      const rows = buildQuestions(toMatrix(questionsSheet), toMatrix(answersSheet))
       setMapped(rows)
       if (!rows.length) setError(t('admin_pools_import_no_rows'))
     } catch (err) {
@@ -63,8 +67,9 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
 
   const downloadTemplate = () => {
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateInstructions()), 'Instructions')
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateMatrix()), 'Questions')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateQuestions()), 'Questions')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateAnswers()), 'Answers')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(templateLegend()), 'Legend')
     XLSX.writeFile(workbook, 'question-import-template.xlsx')
   }
 
@@ -142,7 +147,7 @@ export default function BulkImportQuestionsModal({ pools, onClose, onImported })
 
         <div className={styles.formGroup}>
           <label className={styles.label} htmlFor="bulk-file">{t('admin_pools_import_file')}</label>
-          <input id="bulk-file" ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFile} />
+          <input id="bulk-file" ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} />
           <div className={styles.filterMeta}>{t('admin_pools_import_file_hint')}</div>
           <button type="button" className={styles.actionBtn} onClick={downloadTemplate}>{t('admin_pools_import_download_template')}</button>
         </div>
