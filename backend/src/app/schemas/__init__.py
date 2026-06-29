@@ -237,6 +237,7 @@ class QuestionBase(BaseModel):
     points: float = 1.0
     order: int = 0
     pool_id: Optional[UUID] = None
+    image_url: Optional[str] = Field(default=None, max_length=1024)
 
     @field_validator("text")
     @classmethod
