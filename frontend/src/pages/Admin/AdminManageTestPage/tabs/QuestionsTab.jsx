@@ -2,6 +2,7 @@ import React, { memo } from 'react'
 import useLanguage from '../../../../hooks/useLanguage'
 import styles from '../AdminManageTestPage.module.scss'
 import QuestionImageUpload from '../../../../components/QuestionImageUpload/QuestionImageUpload'
+import QuestionTypeFields from '../../../../components/QuestionTypeFields/QuestionTypeFields'
 
 function QuestionsTab({
   questions,
@@ -48,28 +49,13 @@ function QuestionsTab({
           disabled={lockedExamFields}
           t={t}
         />
-        {questionForm.question_type === 'ORDERING' && (
-          <div className={styles.typeHint}>{t('admin_questions_hint_ordering')}</div>
-        )}
-        {questionForm.question_type === 'FILLINBLANK' && (
-          <div className={styles.typeHint}>{t('admin_questions_hint_fillinblank')}</div>
-        )}
-        {questionForm.question_type === 'MATCHING' && (
-          <div className={styles.typeHint}>{t('admin_questions_hint_matching')}</div>
-        )}
-        {questionForm.question_type === 'TEXT' && (
-          <div className={styles.typeHint}>{t('admin_questions_hint_text')}</div>
-        )}
-        {['MCQ', 'MULTI', 'TRUEFALSE', 'ORDERING', 'FILLINBLANK', 'MATCHING'].includes(questionForm.question_type) && (
-          <label>
-            {questionForm.question_type === 'MATCHING' ? t('admin_questions_label_pairs') : questionForm.question_type === 'FILLINBLANK' ? t('admin_questions_label_acceptable_answers') : t('admin_questions_label_options')}
-            <textarea rows={4} value={questionForm.options_text} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, options_text: e.target.value }))} />
-          </label>
-        )}
-        <label>
-          {questionForm.question_type === 'ORDERING' ? t('admin_questions_label_correct_order') : questionForm.question_type === 'MATCHING' ? t('admin_questions_label_correct_matching') : t('admin_questions_label_correct_answer')}
-          <input value={questionForm.correct_answer} disabled={lockedExamFields || questionForm.question_type === 'ORDERING'} onChange={(e) => setQuestionForm((p) => ({ ...p, correct_answer: e.target.value }))} />
-        </label>
+        <QuestionTypeFields
+          type={questionForm.question_type}
+          state={questionForm.answer}
+          onChange={(answer) => setQuestionForm((p) => ({ ...p, answer }))}
+          disabled={lockedExamFields}
+          t={t}
+        />
         <div className={styles.row}>
           <label>{t('admin_questions_points')}<input type="number" step="0.5" min="0.5" value={questionForm.points} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, points: e.target.value }))} /></label>
           <label>{t('admin_questions_order')}<input type="number" min="0" value={questionForm.order} disabled={lockedExamFields} onChange={(e) => setQuestionForm((p) => ({ ...p, order: e.target.value }))} /></label>
