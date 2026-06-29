@@ -590,3 +590,12 @@
     font-size: 0.75rem;
   }
 }
+
+.qImage {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  margin: 0 0 14px;
+  border-radius: 10px;
+  object-fit: contain;
+}

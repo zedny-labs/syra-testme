@@ -2024,6 +2024,9 @@ export default function Proctoring() {
             transition={{ duration: 0.22 }}
           >
             <div className={styles.qLabel}>{t('question')} {currentIdx + 1} {t('of')} {questions.length}</div>
+            {currentQ.image_url && (
+              <img className={styles.qImage} src={currentQ.image_url} alt={t('admin_questions_image_alt')} />
+            )}
             <div className={styles.qText}>{currentQ.text}</div>
 
             {(currentQType === 'MCQ' || currentQType === 'TRUEFALSE') && (currentQ.options || []).length > 0 ? (
