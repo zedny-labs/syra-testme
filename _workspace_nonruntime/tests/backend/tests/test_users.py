@@ -18,7 +18,7 @@ def test_admin_can_create_user(client, admin_headers):
     assert body["role"] == "LEARNER"
 
 
-def test_admin_can_list_users_with_pagination(client, admin_headers, admin_user, learner_user):
+def test_admin_can_list_users_with_pagination(client, admin_headers, admin_user, learner_user, link_learner_to_admin):
     response = client.get(
         "/api/users/?search=learner@example.com&skip=0&limit=10",
         headers=admin_headers,
@@ -32,7 +32,7 @@ def test_admin_can_list_users_with_pagination(client, admin_headers, admin_user,
     assert body["items"][0]["email"] == learner_user.email
 
 
-def test_admin_can_patch_user(client, admin_headers, learner_user):
+def test_admin_can_patch_user(client, admin_headers, learner_user, link_learner_to_admin):
     response = client.patch(
         f"/api/users/{learner_user.id}",
         headers=admin_headers,
