@@ -308,7 +308,7 @@ def create_test(*, db: Session, body: ExamCreate, current) -> ExamRead:
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail=_t("title_already_exists_module"))
-    except OperationalError as exc:
+    except OperationalError:
         db.rollback()
         raise HTTPException(status_code=503, detail=_t("database_unavailable"))
     db.refresh(test)
