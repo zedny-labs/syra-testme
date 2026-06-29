@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -14,6 +16,21 @@ from ...core.i18n import translate as _t
 from ..deps import ensure_exam_owner, ensure_permission, get_current_user, get_db_dep, learner_can_access_exam, require_permission
 
 router = APIRouter()
+
+QUESTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+QUESTION_IMAGE_CONTENT_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+QUESTIONS_STORAGE_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "storage" / "questions"
+
+
+def _validate_question_image(content_type: str | None, size: int) -> None:
+    if content_type not in QUESTION_IMAGE_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail=_t("question_image_bad_type"))
+    if size > QUESTION_IMAGE_MAX_BYTES:
+        raise HTTPException(status_code=413, detail=_t("question_image_too_large"))
 
 
 def _parse_uuid(value: str, detail: str) -> str:

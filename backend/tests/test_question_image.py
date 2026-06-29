@@ -40,3 +40,26 @@ def test_sanitize_drops_foreign_image_url():
 def test_sanitize_drops_blank_image_url():
     out = sanitize_question_payload({"text": "Q", "image_url": "  "})
     assert out["image_url"] is None
+
+
+import pytest
+from fastapi import HTTPException
+
+from app.api.routes.questions import _validate_question_image, QUESTION_IMAGE_MAX_BYTES
+
+
+def test_validate_image_accepts_png():
+    # should not raise
+    _validate_question_image("image/png", 1024)
+
+
+def test_validate_image_rejects_pdf():
+    with pytest.raises(HTTPException) as exc:
+        _validate_question_image("application/pdf", 1024)
+    assert exc.value.status_code == 400
+
+
+def test_validate_image_rejects_oversized():
+    with pytest.raises(HTTPException) as exc:
+        _validate_question_image("image/png", QUESTION_IMAGE_MAX_BYTES + 1)
+    assert exc.value.status_code == 413
