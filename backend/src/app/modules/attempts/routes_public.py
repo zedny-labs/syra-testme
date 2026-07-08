@@ -20,6 +20,7 @@ from ...models import (
     Attempt,
     AttemptAnswer,
     Exam,
+    ExamSection,
     GradingScale,
     User,
     Question,
@@ -460,6 +461,7 @@ def _build_attempt_read(
         precheck_passed_at=getattr(attempt, "precheck_passed_at", None),
         lighting_score=getattr(attempt, "lighting_score", None),
         id_text=getattr(attempt, "id_text", None) if isinstance(getattr(attempt, "id_text", None), dict) else None,
+        sections_finished=attempt.sections_finished,
         created_at=attempt.created_at,
         updated_at=attempt.updated_at,
         test_title=title,
@@ -1416,6 +1418,33 @@ def submit_answer(
         ans.id = uuid4()
     ans.question_text = ans.question.text if ans.question else None
     return ans
+
+
+@router.post("/{attempt_id}/sections/{section_id}/finish", response_model=AttemptRead)
+def mark_section_finished(
+    attempt_id: str,
+    section_id: str,
+    db: Session = Depends(get_db_dep),
+    current=Depends(get_current_user),
+):
+    attempt_pk = parse_uuid_param(attempt_id, detail=_t("attempt_not_found"))
+    attempt = _load_attempt_for_update(db, attempt_pk)
+    if not attempt:
+        raise HTTPException(status_code=404, detail=_t("attempt_not_found"))
+    _ensure_attempt_access(db, attempt, current)
+    if attempt.status != AttemptStatus.IN_PROGRESS:
+        raise HTTPException(status_code=409, detail=_t("cannot_modify_submitted"))
+    section = db.get(ExamSection, parse_uuid_param(section_id, detail=_t("test_not_found")))
+    if not section or section.exam_id != attempt.exam_id:
+        raise HTTPException(status_code=400, detail=_t("question_not_in_exam"))
+    finished = list(attempt.sections_finished or [])
+    if str(section.id) not in finished:
+        finished.append(str(section.id))
+    attempt.sections_finished = finished
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+    return _build_attempt_read(attempt, db=db)
 
 
 @router.get("/{attempt_id}/answers", response_model=list[AttemptAnswerRead])
