@@ -454,10 +454,10 @@ export default function Proctoring() {
       await flush()
       const { data } = await finishAttemptSection(attemptId, activeSectionId)
       setFinishedSections(data.sections_finished || [])
+      setActiveSectionId(null)   // only return to hub on success
     } catch (e) {
       setSubmitError(e.response?.data?.detail || e.message || t('proctor_load_failed'))
     }
-    setActiveSectionId(null)
   }, [attemptId, activeSectionId, flush, t])
 
   const journeyRequirements = getJourneyRequirements(proctorCfg)
@@ -1837,7 +1837,7 @@ export default function Proctoring() {
   // answer-saving/timing rely on) and the position of that question WITHIN the
   // active section (`inSectionIdx`). `sectionQuestions` is `questions` verbatim
   // for legacy exams, so the flat flow is unchanged.
-  const inSectionIdx = hubEnabled ? sectionQuestions.findIndex((q) => q.id === currentQ?.id) : currentIdx
+  const inSectionIdx = hubEnabled ? Math.max(0, sectionQuestions.findIndex((q) => q.id === currentQ?.id)) : currentIdx
   const isLastInSection = hubEnabled
     ? inSectionIdx === sectionQuestions.length - 1
     : currentIdx === questions.length - 1
@@ -2178,7 +2178,7 @@ export default function Proctoring() {
                 }}
                 disabled={interactionLocked}
                 aria-label={String(i + 1)}
-                title={questionNavLabel(q, i)}
+                title={questionNavLabel(q, flatIdx)}
                 aria-current={isActive ? 'step' : undefined}
                 whileHover={{ y: -1, scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
