@@ -1353,6 +1353,31 @@ def get_attempt(
     )
 
 
+def _ensure_section_answerable(db: Session, attempt, question) -> None:
+    section_id = getattr(question, "section_id", None)
+    if not section_id:
+        return
+    settings = exam_runtime_settings(attempt.exam) if attempt.exam else {}
+    sequential = bool(settings.get("sequential_sections"))
+    allow_revisit = settings.get("allow_revisit_sections", True)
+    finished = set(str(s) for s in (attempt.sections_finished or []))
+
+    if not allow_revisit and str(section_id) in finished:
+        raise HTTPException(status_code=409, detail=_t("cannot_modify_submitted"))
+
+    if sequential:
+        this_section = db.get(ExamSection, section_id)
+        if this_section is not None:
+            earlier = db.scalars(
+                select(ExamSection).where(
+                    ExamSection.exam_id == attempt.exam_id,
+                    ExamSection.order < this_section.order,
+                )
+            ).all()
+            if any(str(s.id) not in finished for s in earlier):
+                raise HTTPException(status_code=409, detail=_t("section_locked"))
+
+
 @router.post("/{attempt_id}/answers", response_model=AttemptAnswerRead)
 def submit_answer(
     attempt_id: str,
@@ -1384,6 +1409,7 @@ def submit_answer(
     question = db.get(Question, body.question_id)
     if not question or question.exam_id != attempt.exam_id:
         raise HTTPException(status_code=400, detail=_t("question_not_in_exam"))
+    _ensure_section_answerable(db, attempt, question)
     persisted_answer = _persistable_answer(body.answer)
     ans = db.scalar(
         select(AttemptAnswer).where(
