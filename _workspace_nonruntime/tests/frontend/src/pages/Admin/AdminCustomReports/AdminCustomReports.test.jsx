@@ -74,7 +74,7 @@ describe('AdminCustomReports page', () => {
       fireEvent.click(screen.getAllByLabelText(column)[0])
     })
 
-    await waitFor(() => expect(screen.getByText('Select at least one column to preview or export this report.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Select at least one column to preview data.')).toBeTruthy())
     expect(screen.getAllByRole('button', { name: 'Export CSV' })[0].disabled).toBe(true)
   })
 
@@ -102,7 +102,7 @@ describe('AdminCustomReports page', () => {
     render(<AdminCustomReports />)
 
     await waitFor(() => expect(screen.getByText('Preview offline')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Retry preview' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Retry Preview' })[0])
 
     await waitFor(() => expect(previewCustomReport).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.getByText('Physics')).toBeTruthy())

@@ -23,6 +23,10 @@ vi.mock('../../../services/admin.service', () => ({
   },
 }))
 
+vi.mock('../../../hooks/useAuth', () => ({
+  default: () => ({ user: { name: 'Admin User', user_id: 'ADM001', role: 'ADMIN' } }),
+}))
+
 describe('AdminDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()

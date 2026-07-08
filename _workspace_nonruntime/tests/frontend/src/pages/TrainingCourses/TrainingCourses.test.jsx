@@ -50,7 +50,7 @@ describe('TrainingCourses page', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Biology 101')).toBeTruthy())
-    expect(screen.getByText('Some training details are temporarily unavailable. Course information is shown, but module or test links may be incomplete.')).toBeTruthy()
+    expect(screen.getByText('Some training details are temporarily unavailable. Course info is shown, but module or test links may be incomplete.')).toBeTruthy()
     expect(screen.getByText('Introduction')).toBeTruthy()
     expect(screen.getByText('No tests available')).toBeTruthy()
   })
@@ -80,7 +80,7 @@ describe('TrainingCourses page', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('Failed to load training courses.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Could not load training courses.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => expect(screen.getByText('Biology 101')).toBeTruthy())
@@ -118,7 +118,7 @@ describe('TrainingCourses page', () => {
 
     fireEvent.change(screen.getByLabelText('Search courses'), { target: { value: 'physics' } })
 
-    await waitFor(() => expect(screen.getByText('No courses match the current search.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No courses match your search.')).toBeTruthy())
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 

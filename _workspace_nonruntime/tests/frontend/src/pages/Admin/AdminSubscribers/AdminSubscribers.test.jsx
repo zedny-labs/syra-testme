@@ -76,7 +76,7 @@ describe('AdminSubscribers page', () => {
 
     render(<AdminSubscribers />)
 
-    await waitFor(() => expect(screen.getByText('Showing 2 subscribers across 2 saved.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Showing subscribers.')).toBeTruthy())
 
     fireEvent.change(screen.getByLabelText('Search subscribers'), { target: { value: 'missing-domain' } })
 
@@ -85,6 +85,6 @@ describe('AdminSubscribers page', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 
     await waitFor(() => expect(screen.getByText('ops@example.com')).toBeTruthy())
-    expect(screen.getByText('Showing 2 subscribers across 2 saved.')).toBeTruthy()
+    expect(screen.getByText('Showing subscribers.')).toBeTruthy()
   })
 })

@@ -620,9 +620,14 @@ if [[ "$DATABASE_URL" == *".pooler.supabase.com:6543"* ]]; then
   DB_POOL_TIMEOUT_VALUE="${DB_POOL_TIMEOUT_VALUE:-15}"
 fi
 
-AUTO_APPLY_MIGRATIONS_VALUE="false"
-if [[ "$RUN_LOCAL_DB" == "1" ]]; then
+# Overridable so dev can disable boot-time migrations (they already run as a
+# one-shot before services start). No SYRA_ override on main -> unchanged there.
+if [[ -n "${SYRA_AUTO_APPLY_MIGRATIONS:-}" ]]; then
+  AUTO_APPLY_MIGRATIONS_VALUE="${SYRA_AUTO_APPLY_MIGRATIONS}"
+elif [[ "$RUN_LOCAL_DB" == "1" ]]; then
   AUTO_APPLY_MIGRATIONS_VALUE="true"
+else
+  AUTO_APPLY_MIGRATIONS_VALUE="false"
 fi
 
 if [[ "$PREPARE_ONLY" -eq 0 && "$RUN_LOCAL_DB" == "0" && "$DATABASE_URL" == "$LOCAL_DATABASE_URL" ]]; then
@@ -883,6 +888,18 @@ log "Building backend image..."
   compose build backend
 )
 
+# Local-DB mode: the migration runs with --no-deps, so the Postgres container
+# must already be up (else 'db' does not resolve). No-op in external/production
+# mode (RUN_LOCAL_DB=0), so main is unaffected.
+if [[ "$RUN_LOCAL_DB" == "1" ]]; then
+  log "Starting local database container before migrations..."
+  (
+    cd "$REPO_ROOT"
+    compose up -d db
+  )
+  wait_for_service_health db 120 || log "WARNING: db health not confirmed; migration will surface a clear error if it can't connect."
+fi
+
 log "Running database migrations (timeout: ${DB_MIGRATION_TIMEOUT_SECONDS}s)..."
 (
   cd "$REPO_ROOT"
@@ -937,8 +954,9 @@ DB_HEALTH_URL="${API_HEALTH_URL%/health}/health/db"
 LOGIN_URL="${FRONTEND_URL%/}/login"
 
 require_http_200 "$FRONTEND_URL" "Frontend"
-require_http_200 "http://127.0.0.1:8000/api/health" "Local API health" 10 6 5
-require_http_200 "http://127.0.0.1:8000/api/health/db" "Local API DB health" 15 6 5
+# Local backend host port (prod: 8000; dev remaps to 8001 via SYRA_LOCAL_BACKEND_PORT).
+require_http_200 "http://127.0.0.1:${SYRA_LOCAL_BACKEND_PORT:-8000}/api/health" "Local API health" 10 6 5
+require_http_200 "http://127.0.0.1:${SYRA_LOCAL_BACKEND_PORT:-8000}/api/health/db" "Local API DB health" 15 6 5
 require_http_200 "$API_HEALTH_URL" "API health" 30 6 5
 require_http_200 "$DB_HEALTH_URL" "API DB health" 30 6 5
 

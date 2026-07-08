@@ -34,6 +34,7 @@ def _run_async(coro):
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, coro).result()
 
+
 BASE_STORAGE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "storage"
 VIDEO_UPLOAD_SPOOL_DIR = BASE_STORAGE_DIR / "video_uploads"
 

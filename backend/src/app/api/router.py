@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter
 
 from .routes import (
@@ -33,6 +35,15 @@ from .routes import (
 )
 
 router = APIRouter(redirect_slashes=False)
+
+
+@router.get("/version", tags=["health"])
+def version():
+    """Git SHA of this deploy (BUILD_SHA env, injected via the compose env_file).
+    The deploy pipeline curls this to verify the running app == the shipped commit."""
+    sha = os.getenv("BUILD_SHA", "")
+    return {"sha": sha, "short_sha": sha[:7], "service": "syra"}
+
 
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(users.router, prefix="/users", tags=["users"])

@@ -29,11 +29,11 @@ settings = get_settings()
 
 # ── Redis key / channel schema ─────────────────────────────────────────────
 _KEY_SESSION = "syra:live:session:{}"   # JSON session metadata
-_KEY_THUMB   = "syra:live:thumb:{}"     # raw JPEG bytes of last thumbnail
-_CHANNEL     = "syra:live:{}"           # pub/sub channel per attempt
+_KEY_THUMB = "syra:live:thumb:{}"       # raw JPEG bytes of last thumbnail
+_CHANNEL = "syra:live:{}"               # pub/sub channel per attempt
 
 SESSION_TTL_S = 3 * 3600   # 3 h — safety expiry in case of crash
-THUMB_TTL_S   = 120        # 2 min — last thumbnail expires quickly
+THUMB_TTL_S = 120          # 2 min — last thumbnail expires quickly
 
 # ── Shared connection pool (for all non-subscribe operations) ──────────────
 _pool: ConnectionPool | None = None

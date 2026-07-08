@@ -38,8 +38,8 @@ describe('Sidebar role visibility', () => {
         <Sidebar />
       </MemoryRouter>
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Expand Testing Center section' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Expand Users section' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Testing Center' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Users' }))
     await waitFor(() => expect(screen.getByText('Testing Sessions')).toBeTruthy())
     await waitFor(() => expect(screen.getByText('User Profiles')).toBeTruthy())
     expect(screen.queryByRole('link', { name: 'Training' })).toBeNull()
@@ -54,7 +54,7 @@ describe('Sidebar role visibility', () => {
         <Sidebar />
       </MemoryRouter>
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Expand Tests section' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Tests' }))
     await waitFor(() => expect(screen.getByText('Manage Tests')).toBeTruthy())
     expect(screen.getAllByText('Testing Center').length).toBeGreaterThan(0)
   })

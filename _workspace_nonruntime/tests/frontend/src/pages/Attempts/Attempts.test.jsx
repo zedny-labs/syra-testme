@@ -48,9 +48,9 @@ describe('Attempts page', () => {
     await waitFor(() => expect(screen.getByText('Test 1')).toBeTruthy())
     expect(screen.getByText('SUBMITTED')).toBeTruthy()
     expect(screen.getByText('GRADED')).toBeTruthy()
-    expect(screen.getByLabelText('Average score value').textContent).toBe('85%')
-    expect(screen.getByLabelText('Best score value').textContent).toBe('90%')
-    expect(screen.getByLabelText('Completed attempts value').textContent).toBe('2')
+    expect(screen.getByLabelText('Average score').textContent).toBe('85%')
+    expect(screen.getByLabelText('Best score').textContent).toBe('90%')
+    expect(screen.getByLabelText('Completed attempts').textContent).toBe('2')
   })
 
   it('routes in-progress attempts back to the take-test flow', async () => {

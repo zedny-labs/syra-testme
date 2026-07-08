@@ -59,7 +59,7 @@ describe('AdminTestingSessions page', () => {
     render(<AdminTestingSessions />)
 
     await waitFor(() => expect(screen.getByText('Physics Final')).toBeTruthy())
-    expect(screen.getByText('Some scheduling lookup data could not be loaded. Existing sessions remain visible, but creating new sessions is temporarily disabled.')).toBeTruthy()
+    expect(screen.getByText('Some lookup data could not be loaded. Existing sessions remain visible, but creating new sessions is temporarily disabled.')).toBeTruthy()
     expect(screen.getByRole('button', { name: '+ New Session' }).disabled).toBe(true)
   })
 
@@ -94,7 +94,7 @@ describe('AdminTestingSessions page', () => {
 
     await waitFor(() => expect(screen.getByText('Physics Final')).toBeTruthy())
 
-    fireEvent.change(screen.getByPlaceholderText('Search by test name, code, or learner...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search by test, learner, or code...'), {
       target: { value: 'chemistry' },
     })
 
