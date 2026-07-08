@@ -82,12 +82,14 @@ jobs:
 
             echo ">>> Running dev deploy (setup-linux.sh --local, isolated ports + Postgres container)..."
             # Dev Postgres runs as a container (--local). Password is internal-only.
-            POSTGRES_PASSWORD='${{ secrets.SYRA_DEV_POSTGRES_PASSWORD }}'
-            [ -z "$POSTGRES_PASSWORD" ] && POSTGRES_PASSWORD="syra-dev-local-password"
-            export POSTGRES_PASSWORD
-            export SYRA_DATABASE_URL="postgresql+psycopg://syra:${POSTGRES_PASSWORD}@db:5432/syra_lms"
-            # alembic uses the MIGRATION url; point it at the same dev container
-            # (else it falls back to the .env.docker.example Supabase placeholder).
+            PG_PW='${{ secrets.SYRA_DEV_POSTGRES_PASSWORD }}'
+            [ -z "$PG_PW" ] && PG_PW="syra-dev-local-password"
+            # setup-linux.sh sources the DB password from SYRA_POSTGRES_PASSWORD:
+            # it inits the db container AND builds LOCAL_DATABASE_URL from it, so
+            # all three (container, DATABASE_URL, migration URL) must use this one.
+            export SYRA_POSTGRES_PASSWORD="$PG_PW"
+            export POSTGRES_PASSWORD="$PG_PW"
+            export SYRA_DATABASE_URL="postgresql+psycopg://syra:${PG_PW}@db:5432/syra_lms"
             export SYRA_DATABASE_MIGRATION_URL="$SYRA_DATABASE_URL"
 
             # Same-VM isolation: publish dev on localhost-only 8081/8001 (prod keeps 8080/8000).
