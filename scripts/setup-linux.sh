@@ -937,8 +937,9 @@ DB_HEALTH_URL="${API_HEALTH_URL%/health}/health/db"
 LOGIN_URL="${FRONTEND_URL%/}/login"
 
 require_http_200 "$FRONTEND_URL" "Frontend"
-require_http_200 "http://127.0.0.1:8000/api/health" "Local API health" 10 6 5
-require_http_200 "http://127.0.0.1:8000/api/health/db" "Local API DB health" 15 6 5
+# Local backend host port (prod: 8000; dev remaps to 8001 via SYRA_LOCAL_BACKEND_PORT).
+require_http_200 "http://127.0.0.1:${SYRA_LOCAL_BACKEND_PORT:-8000}/api/health" "Local API health" 10 6 5
+require_http_200 "http://127.0.0.1:${SYRA_LOCAL_BACKEND_PORT:-8000}/api/health/db" "Local API DB health" 15 6 5
 require_http_200 "$API_HEALTH_URL" "API health" 30 6 5
 require_http_200 "$DB_HEALTH_URL" "API DB health" 30 6 5
 

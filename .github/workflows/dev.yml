@@ -1,0 +1,118 @@
+name: Deploy Dev to VM
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: dev-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Dev (same VM, isolated)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          password: ${{ secrets.VM_PASSWORD }}
+          port: 22
+          command_timeout: 20m
+          script: |
+            set -Eeuo pipefail
+            cd /opt/syra-testme-dev
+
+            dump_deploy_diagnostics() {
+              local exit_code=$?
+              set +e
+              echo ">>> Dev deployment failed (exit ${exit_code}). Docker diagnostics..."
+              docker compose -f docker-compose.yml -f docker-compose.local-db.yml ps -a || true
+              echo ">>> Backend logs";  docker compose -f docker-compose.yml -f docker-compose.local-db.yml logs --tail 200 backend  || true
+              echo ">>> DB logs";       docker compose -f docker-compose.yml -f docker-compose.local-db.yml logs --tail 60  db       || true
+              echo ">>> Frontend logs"; docker compose -f docker-compose.yml -f docker-compose.local-db.yml logs --tail 80  frontend || true
+              exit "$exit_code"
+            }
+            trap dump_deploy_diagnostics ERR
+
+            echo ">>> Pulling dev branch on the server..."
+            git remote remove origin || true
+            git remote add origin "https://github.com/zedny-labs/syra-testme.git"
+            git fetch origin dev
+            git reset --hard origin/dev
+
+            echo ">>> Seeding dev env (JWT + BREVO) from secrets..."
+            python3 - <<'PY'
+            import json
+            from pathlib import Path
+            repo_root = Path("/opt/syra-testme-dev")
+            targets = (repo_root / ".env", repo_root / "backend" / ".env.docker")
+            updates = {
+                "JWT_SECRET": json.loads(r'''${{ toJSON(secrets.SYRA_JWT_SECRET) }}'''),
+                "BREVO_API_KEY": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_API_KEY) }}'''),
+                "BREVO_SENDER_EMAIL": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_EMAIL) }}'''),
+                "BREVO_SENDER_NAME": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_NAME) }}'''),
+            }
+            def upsert(path, values):
+                lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+                pending = {k: v for k, v in values.items() if v}
+                if not pending:
+                    return
+                seen, out = set(), []
+                for line in lines:
+                    key, sep, _ = line.partition("=")
+                    if sep and key in pending:
+                        out.append(f"{key}={pending[key]}"); seen.add(key)
+                    else:
+                        out.append(line)
+                for k, v in pending.items():
+                    if k not in seen:
+                        out.append(f"{k}={v}")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(out) + "\n", encoding="utf-8")
+            for t in targets:
+                upsert(t, updates)
+            print(">>> Wrote JWT/BREVO overrides into dev .env and backend/.env.docker")
+            PY
+
+            echo ">>> Running dev deploy (setup-linux.sh --local, isolated ports + Postgres container)..."
+            # Dev Postgres runs as a container (--local). Password is internal-only.
+            POSTGRES_PASSWORD='${{ secrets.SYRA_DEV_POSTGRES_PASSWORD }}'
+            [ -z "$POSTGRES_PASSWORD" ] && POSTGRES_PASSWORD="syra-dev-local-password"
+            export POSTGRES_PASSWORD
+            export SYRA_DATABASE_URL="postgresql+psycopg://syra:${POSTGRES_PASSWORD}@db:5432/syra_lms"
+
+            # Same-VM isolation: publish dev on localhost-only 8081/8001 (prod keeps 8080/8000).
+            export SYRA_FRONTEND_PUBLISH="127.0.0.1:8081:80"
+            export SYRA_BACKEND_PUBLISH="127.0.0.1:8001:8000"
+            export SYRA_LOCAL_BACKEND_PORT=8001
+            export SYRA_FRONTEND_URL="https://dev-varexam.zedny.ai"
+            export SYRA_BACKEND_URL="https://dev-varexam.zedny.ai/api"
+            export SYRA_APP_FRONTEND_URL="https://dev-varexam.zedny.ai"
+            export SYRA_APP_BACKEND_URL="https://dev-varexam.zedny.ai/api"
+            export SYRA_SEED_DEMO_DATA=0
+            export SYRA_SEED_LOGIN_USERS=1
+            export SYRA_DB_MIGRATION_TIMEOUT_SECONDS=240
+            export SYRA_BACKEND_HEALTH_TIMEOUT_SECONDS=180
+            export SYRA_FRONTEND_HEALTH_TIMEOUT_SECONDS=60
+
+            if ! command -v flock >/dev/null 2>&1; then
+              echo "::error title=Missing required command::flock is required on the VM."
+              exit 1
+            fi
+
+            flock -n -E 75 /tmp/syra-testme-dev-deploy.lock bash scripts/setup-linux.sh --local || {
+              exit_code=$?
+              if [[ "$exit_code" -eq 75 ]]; then
+                echo "::error title=Deploy already in progress::Another dev deploy is running on the VM."
+              fi
+              exit "$exit_code"
+            }
+
+            trap - ERR
+            echo ">>> Dev deployment complete! https://dev-varexam.zedny.ai"

@@ -69,8 +69,10 @@ services:
       retries: 10
       start_period: 120s
     # Backend is only accessible via nginx — do NOT expose externally in production.
+    # Host publish is env-overridable so a second (dev) stack can run on the same
+    # VM without colliding. Default = production. Dev sets SYRA_BACKEND_PUBLISH.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${SYRA_BACKEND_PUBLISH:-127.0.0.1:8000:8000}"
     expose:
       - "8000"
     volumes:
@@ -186,8 +188,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    # Host publish is env-overridable (default = production :8080). A dev stack on
+    # the same VM sets SYRA_FRONTEND_PUBLISH=127.0.0.1:8081:80.
     ports:
-      - "8080:80"
+      - "${SYRA_FRONTEND_PUBLISH:-8080:80}"
     networks:
       - internal
     logging:
