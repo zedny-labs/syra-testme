@@ -57,6 +57,10 @@ jobs:
                 "BREVO_API_KEY": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_API_KEY) }}'''),
                 "BREVO_SENDER_EMAIL": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_EMAIL) }}'''),
                 "BREVO_SENDER_NAME": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_NAME) }}'''),
+                # dev/test env: --local enables PRECHECK_ALLOW_TEST_BYPASS, which the
+                # backend guard only permits alongside AUTO_APPLY_MIGRATIONS when
+                # E2E_SEED_ENABLED confirms this is a test environment.
+                "E2E_SEED_ENABLED": "true",
             }
             def upsert(path, values):
                 lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
