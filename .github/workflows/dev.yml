@@ -109,9 +109,11 @@ jobs:
 
             # ---- SHA verify: running /api/version == expected commit -------------
             verify_sha(){  # $1 = expected sha
-              local expected="$1" running
-              running="$(curl -fsS --max-time 10 "$VERSION_URL" 2>/dev/null | sed -n 's/.*"sha"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
-              log "Running SHA: ${running:-<none>} | Expected: $expected"
+              local expected="$1" running body code
+              body="$(curl -sS --max-time 10 -w '#HTTP:%{http_code}' "$VERSION_URL" 2>&1 || true)"
+              code="${body##*#HTTP:}"; body="${body%#HTTP:*}"
+              running="$(printf '%s' "$body" | sed -n 's/.*"sha"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+              log "SHA verify: http=$code running=[${running:-<none>}] expected=$expected raw=[$body]"
               [ -n "$running" ] && [ "$running" = "$expected" ]
             }
 
