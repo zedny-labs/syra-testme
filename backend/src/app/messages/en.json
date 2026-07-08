@@ -247,5 +247,6 @@
   "report_medium_alerts": "Medium Alerts",
   "report_no_attempts_found": "No attempts found.",
   "report_no_alert_data": "No alert data found.",
-  "report_no_attempts_yet": "No attempts yet."
+  "report_no_attempts_yet": "No attempts yet.",
+  "section_locked": "This section is locked until earlier sections are finished."
 }
