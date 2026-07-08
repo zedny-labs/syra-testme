@@ -7,8 +7,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...core.i18n import translate as _t
-from ...models import Exam, ExamSection, ExamStatus, Question, RoleEnum
-from ...schemas import ExamSectionCreate, ExamSectionRead, ExamSectionReorder, ExamSectionUpdate
+from ...models import Exam, ExamSection, ExamStatus, RoleEnum
+from ...schemas import ExamSectionCreate, ExamSectionRead, ExamSectionReorder, ExamSectionUpdate, Message
 from ..deps import ensure_exam_owner, get_db_dep, parse_uuid_param, require_permission
 
 router = APIRouter()
@@ -56,9 +56,8 @@ def create_section(
     exam = _get_owned_exam(db, exam_id, current)
     if exam.status == ExamStatus.OPEN:
         raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
-    next_order = (
-        db.scalar(select(func.max(ExamSection.order)).where(ExamSection.exam_id == exam.id)) or -1
-    ) + 1
+    max_order = db.scalar(select(func.max(ExamSection.order)).where(ExamSection.exam_id == exam.id))
+    next_order = (max_order + 1) if max_order is not None else 0
     section = ExamSection(
         exam_id=exam.id,
         title=body.title,
@@ -79,6 +78,8 @@ def update_section(
     current=Depends(require_permission("Edit Tests", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
 ):
     section = _get_owned_section(db, section_id, current)
+    if section.exam and section.exam.status == ExamStatus.OPEN:
+        raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
     if body.title is not None:
         section.title = body.title
     if body.description is not None:
@@ -90,7 +91,7 @@ def update_section(
     return section
 
 
-@router.delete("/sections/{section_id}")
+@router.delete("/sections/{section_id}", response_model=Message)
 def delete_section(
     section_id: str,
     db: Session = Depends(get_db_dep),
@@ -101,7 +102,7 @@ def delete_section(
         raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
     db.delete(section)
     db.commit()
-    return {"detail": _t("deleted")}
+    return Message(detail=_t("deleted"))
 
 
 @router.post("/exams/{exam_id}/sections/reorder", response_model=list[ExamSectionRead])
@@ -112,6 +113,8 @@ def reorder_sections(
     current=Depends(require_permission("Edit Tests", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
 ):
     exam = _get_owned_exam(db, exam_id, current)
+    if exam.status == ExamStatus.OPEN:
+        raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
     by_id = {
         str(s.id): s
         for s in db.scalars(

@@ -11,8 +11,9 @@ from app.db.base import Base
 from app.models import Exam, ExamSection, ExamStatus, ExamType, Question, RoleEnum, User
 from app.schemas import ExamSectionCreate, ExamSectionUpdate
 from app.api.routes.exam_sections import (
-    create_section, list_sections, update_section, delete_section,
+    create_section, list_sections, update_section, delete_section, reorder_sections,
 )
+from app.schemas import ExamSectionReorder, ExamSectionReorderItem
 
 
 def _session() -> Session:
@@ -68,5 +69,55 @@ def test_non_owner_cannot_create_section() -> None:
         with pytest.raises(HTTPException) as exc:
             create_section(exam_id=str(exam.id), body=ExamSectionCreate(title="X"), db=db, current=other)
         assert exc.value.status_code == 403
+    finally:
+        db.close()
+
+
+def test_second_section_gets_distinct_order() -> None:
+    db = _session()
+    try:
+        admin = _user(db)
+        exam = _exam(db, admin)
+        s1 = create_section(exam_id=str(exam.id), body=ExamSectionCreate(title="First"), db=db, current=admin)
+        s2 = create_section(exam_id=str(exam.id), body=ExamSectionCreate(title="Second"), db=db, current=admin)
+        assert s1.order == 0
+        assert s2.order == 1
+    finally:
+        db.close()
+
+
+def test_reorder_sections_applies_new_orders() -> None:
+    db = _session()
+    try:
+        admin = _user(db)
+        exam = _exam(db, admin)
+        s1 = create_section(exam_id=str(exam.id), body=ExamSectionCreate(title="A"), db=db, current=admin)
+        s2 = create_section(exam_id=str(exam.id), body=ExamSectionCreate(title="B"), db=db, current=admin)
+        # Swap: give s1 order=1, s2 order=0
+        payload = ExamSectionReorder(sections=[
+            ExamSectionReorderItem(id=s1.id, order=1),
+            ExamSectionReorderItem(id=s2.id, order=0),
+        ])
+        result = reorder_sections(exam_id=str(exam.id), body=payload, db=db, current=admin)
+        # Result is sorted by order asc, so s2 (order=0) comes first, then s1 (order=1)
+        assert result[0].id == s2.id
+        assert result[1].id == s1.id
+        assert result[0].order == 0
+        assert result[1].order == 1
+    finally:
+        db.close()
+
+
+def test_cannot_create_section_on_open_exam() -> None:
+    db = _session()
+    try:
+        admin = _user(db)
+        exam = Exam(id=uuid.uuid4(), node_id=uuid.uuid4(), title="Open", type=ExamType.MCQ,
+                    status=ExamStatus.OPEN, created_by_id=admin.id)
+        db.add(exam)
+        db.flush()
+        with pytest.raises(HTTPException) as exc:
+            create_section(exam_id=str(exam.id), body=ExamSectionCreate(title="Blocked"), db=db, current=admin)
+        assert exc.value.status_code == 409
     finally:
         db.close()
