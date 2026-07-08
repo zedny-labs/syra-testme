@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     BACKEND_BASE_URL: str = Field(default="http://127.0.0.1:8000")
 
     CORS_ORIGINS: str = Field(default="")
+    # Git SHA of the deployed commit, seeded by the deploy pipeline. Exposed at
+    # /api/version so the deploy can verify the running app == the shipped commit.
+    BUILD_SHA: str = Field(default="")
     RATE_LIMIT_LOGIN: str = Field(default="120/minute")
     RATE_LIMIT_REFRESH: str = Field(default="60/minute")
     RATE_LIMIT_FORGOT: str = Field(default="5/minute")

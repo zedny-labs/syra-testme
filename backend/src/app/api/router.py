@@ -33,6 +33,17 @@ from .routes import (
 
 router = APIRouter(redirect_slashes=False)
 
+
+@router.get("/version", tags=["health"])
+def version():
+    """Git SHA baked into this deploy (BUILD_SHA). The deploy pipeline curls this
+    to verify the running app is serving exactly the shipped commit."""
+    from ..core.config import settings
+
+    sha = settings.BUILD_SHA or ""
+    return {"sha": sha, "short_sha": sha[:7], "service": "syra"}
+
+
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(users.router, prefix="/users", tags=["users"])
 router.include_router(courses.router, prefix="/courses", tags=["courses"])
