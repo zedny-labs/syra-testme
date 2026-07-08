@@ -91,6 +91,10 @@ jobs:
             export POSTGRES_PASSWORD="$PG_PW"
             export SYRA_DATABASE_URL="postgresql+psycopg://syra:${PG_PW}@db:5432/syra_lms"
             export SYRA_DATABASE_MIGRATION_URL="$SYRA_DATABASE_URL"
+            # The RUNTIME app reads APP_DATABASE_URL (written to backend/.env.docker),
+            # which is separate from DATABASE_URL used for migration/preflight. Point
+            # it at the dev container too, else health/db 503s on the example placeholder.
+            export SYRA_APP_DATABASE_URL="$SYRA_DATABASE_URL"
 
             # Same-VM isolation: publish dev on localhost-only 8081/8001 (prod keeps 8080/8000).
             export SYRA_FRONTEND_PUBLISH="127.0.0.1:8081:80"
