@@ -7,8 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...core.i18n import translate as _t
-from ...models import Exam, ExamSection, ExamStatus, RoleEnum
-from ...schemas import ExamSectionCreate, ExamSectionRead, ExamSectionReorder, ExamSectionUpdate, Message
+from ...models import Exam, ExamSection, ExamStatus, Question, QuestionPool, RoleEnum
+from ...schemas import ExamSectionCreate, ExamSectionFromPool, ExamSectionRead, ExamSectionReorder, ExamSectionUpdate, Message
+from .question_pools import _load_pool_questions
 from ..deps import ensure_exam_owner, get_db_dep, parse_uuid_param, require_permission
 
 router = APIRouter()
@@ -103,6 +104,47 @@ def delete_section(
     db.delete(section)
     db.commit()
     return Message(detail=_t("deleted"))
+
+
+@router.post("/exams/{exam_id}/sections/from-pool", response_model=ExamSectionRead)
+def create_section_from_pool(
+    exam_id: str,
+    body: ExamSectionFromPool,
+    db: Session = Depends(get_db_dep),
+    current=Depends(require_permission("Edit Tests", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
+):
+    exam = _get_owned_exam(db, exam_id, current)
+    if exam.status == ExamStatus.OPEN:
+        raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
+    pool = db.get(QuestionPool, body.pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail=_t("pool_not_found"))
+    if pool.created_by_id != current.id:
+        raise HTTPException(status_code=403, detail=_t("not_allowed"))
+
+    pool_questions = {str(q.id): q for q in _load_pool_questions(db, pool.id)}
+    picked = [pool_questions[str(qid)] for qid in body.question_ids if str(qid) in pool_questions]
+    if not picked:
+        raise HTTPException(status_code=400, detail=_t("pool_no_questions"))
+
+    max_order = db.scalar(select(func.max(ExamSection.order)).where(ExamSection.exam_id == exam.id))
+    next_order = (max_order + 1) if max_order is not None else 0
+    section = ExamSection(exam_id=exam.id, title=(body.title or pool.name), order=next_order, source_pool_id=pool.id)
+    db.add(section)
+    db.flush()  # get section.id
+
+    existing_max_q = db.scalar(select(func.max(Question.order)).where(Question.exam_id == exam.id)) or 0
+    now = datetime.now(timezone.utc)
+    for i, pq in enumerate(picked):
+        db.add(Question(
+            exam_id=exam.id, section_id=section.id, text=pq.text, type=pq.type,
+            options=pq.options, correct_answer=pq.correct_answer, points=pq.points,
+            order=existing_max_q + i + 1, pool_id=pool.id, image_url=pq.image_url,
+            created_at=now, updated_at=now,
+        ))
+    db.commit()
+    db.refresh(section)
+    return section
 
 
 @router.post("/exams/{exam_id}/sections/reorder", response_model=list[ExamSectionRead])
