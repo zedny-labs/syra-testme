@@ -86,6 +86,9 @@ jobs:
             [ -z "$POSTGRES_PASSWORD" ] && POSTGRES_PASSWORD="syra-dev-local-password"
             export POSTGRES_PASSWORD
             export SYRA_DATABASE_URL="postgresql+psycopg://syra:${POSTGRES_PASSWORD}@db:5432/syra_lms"
+            # alembic uses the MIGRATION url; point it at the same dev container
+            # (else it falls back to the .env.docker.example Supabase placeholder).
+            export SYRA_DATABASE_MIGRATION_URL="$SYRA_DATABASE_URL"
 
             # Same-VM isolation: publish dev on localhost-only 8081/8001 (prod keeps 8080/8000).
             export SYRA_FRONTEND_PUBLISH="127.0.0.1:8081:80"
