@@ -503,12 +503,15 @@ def seed_exam_from_pool(
     existing_max = db.scalar(
         select(func.max(Question.order)).where(Question.exam_id == exam_pk)
     ) or 0
+    from app.api.routes.exam_sections import ensure_general_section
+    section = ensure_general_section(db, exam)
     selected = random.sample(candidates, min(count, len(candidates)))
     for i, pq in enumerate(selected):
         q = Question(
             exam_id=exam_pk, text=pq.text, type=pq.type, options=pq.options,
             correct_answer=pq.correct_answer, points=pq.points,
             order=existing_max + i + 1, pool_id=pool_pk, image_url=pq.image_url,
+            section_id=section.id,
         )
         db.add(q)
     db.commit()
