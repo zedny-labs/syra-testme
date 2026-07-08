@@ -3945,7 +3945,10 @@ export default function AdminManageTestPage() {
 
         {tab === 'sections' && (
           <>
-            <SectionsManager examId={id} />
+            <SectionsManager
+              examId={id}
+              onChange={() => adminApi.getQuestions(id).then(({ data }) => setQuestions(data || [])).catch(() => {})}
+            />
             <QuestionsTab
               questions={questions}
               questionSearch={questionSearch}

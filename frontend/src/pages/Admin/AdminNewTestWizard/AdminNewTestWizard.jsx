@@ -2475,7 +2475,10 @@ export default function AdminNewTestWizard() {
 
           {examId && (
             <>
-              <SectionsManager examId={examId} />
+              <SectionsManager
+                examId={examId}
+                onChange={() => adminApi.getQuestions(examId).then(({ data }) => setQuestions(data || [])).catch(() => {})}
+              />
               <ExamQuestionPanel examId={examId} questions={questions} onUpdate={setQuestions} questionTypes={QUESTION_TYPES} />
             </>
           )}

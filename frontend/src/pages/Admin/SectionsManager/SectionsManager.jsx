@@ -3,7 +3,7 @@ import { adminApi } from '../../../services/admin.service'
 import useLanguage from '../../../hooks/useLanguage'
 import styles from './SectionsManager.module.css'
 
-export default function SectionsManager({ examId }) {
+export default function SectionsManager({ examId, onChange }) {
   const { t } = useLanguage()
 
   // Sections state
@@ -147,6 +147,7 @@ export default function SectionsManager({ examId }) {
     try {
       await adminApi.deleteSection(sectionId)
       await loadSections()
+      onChange?.()
     } catch {
       setSectionsError(t('admin_sections_delete_error'))
     } finally {
@@ -187,6 +188,7 @@ export default function SectionsManager({ examId }) {
       setSectionTitle('')
       setShowAddPanel(false)
       await loadSections()
+      onChange?.()
     } catch {
       setCreateError(t('admin_sections_create_error'))
     } finally {
