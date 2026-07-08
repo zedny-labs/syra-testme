@@ -57,10 +57,6 @@ jobs:
                 "BREVO_API_KEY": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_API_KEY) }}'''),
                 "BREVO_SENDER_EMAIL": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_EMAIL) }}'''),
                 "BREVO_SENDER_NAME": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_NAME) }}'''),
-                # dev/test env: --local enables PRECHECK_ALLOW_TEST_BYPASS, which the
-                # backend guard only permits alongside AUTO_APPLY_MIGRATIONS when
-                # E2E_SEED_ENABLED confirms this is a test environment.
-                "E2E_SEED_ENABLED": "true",
             }
             def upsert(path, values):
                 lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
@@ -104,6 +100,10 @@ jobs:
             export SYRA_BACKEND_URL="https://dev-varexam.zedny.ai/api"
             export SYRA_APP_FRONTEND_URL="https://dev-varexam.zedny.ai"
             export SYRA_APP_BACKEND_URL="https://dev-varexam.zedny.ai/api"
+            # Migrations run as a one-shot before services start, so don't also
+            # run them at backend boot (that hangs, and it collides with the
+            # test-bypass guard). This keeps the guard satisfied without E2E seed.
+            export SYRA_AUTO_APPLY_MIGRATIONS=false
             export SYRA_SEED_DEMO_DATA=0
             export SYRA_SEED_LOGIN_USERS=1
             export SYRA_DB_MIGRATION_TIMEOUT_SECONDS=240

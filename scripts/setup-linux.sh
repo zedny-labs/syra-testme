@@ -620,9 +620,14 @@ if [[ "$DATABASE_URL" == *".pooler.supabase.com:6543"* ]]; then
   DB_POOL_TIMEOUT_VALUE="${DB_POOL_TIMEOUT_VALUE:-15}"
 fi
 
-AUTO_APPLY_MIGRATIONS_VALUE="false"
-if [[ "$RUN_LOCAL_DB" == "1" ]]; then
+# Overridable so dev can disable boot-time migrations (they already run as a
+# one-shot before services start). No SYRA_ override on main -> unchanged there.
+if [[ -n "${SYRA_AUTO_APPLY_MIGRATIONS:-}" ]]; then
+  AUTO_APPLY_MIGRATIONS_VALUE="${SYRA_AUTO_APPLY_MIGRATIONS}"
+elif [[ "$RUN_LOCAL_DB" == "1" ]]; then
   AUTO_APPLY_MIGRATIONS_VALUE="true"
+else
+  AUTO_APPLY_MIGRATIONS_VALUE="false"
 fi
 
 if [[ "$PREPARE_ONLY" -eq 0 && "$RUN_LOCAL_DB" == "0" && "$DATABASE_URL" == "$LOCAL_DATABASE_URL" ]]; then
