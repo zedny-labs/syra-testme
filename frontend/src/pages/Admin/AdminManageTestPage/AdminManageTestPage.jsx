@@ -21,6 +21,7 @@ import {
 import AdministrationTab from './tabs/AdministrationTab'
 import CandidatesTab from './tabs/CandidatesTab'
 import ProctoringTab from './tabs/ProctoringTab'
+import QuestionsTab from './tabs/QuestionsTab'
 import SectionsManager from '../SectionsManager/SectionsManager'
 import ReportsTab from './tabs/ReportsTab'
 import SessionsTab from './tabs/SessionsTab'
@@ -3943,7 +3944,30 @@ export default function AdminManageTestPage() {
         )}
 
         {tab === 'sections' && (
-          <SectionsManager examId={id} />
+          <>
+            <SectionsManager examId={id} />
+            <QuestionsTab
+              questions={questions}
+              questionSearch={questionSearch}
+              setQuestionSearch={setQuestionSearch}
+              questionForm={questionForm}
+              lockedExamFields={lockedExamFields}
+              handleQuestionTypeChange={handleQuestionTypeChange}
+              setQuestionForm={setQuestionForm}
+              questionTypes={QUESTION_TYPES}
+              questionBusy={questionBusy}
+              editingQuestionId={editingQuestionId}
+              resetQuestionForm={resetQuestionForm}
+              handleQuestionSubmit={handleQuestionSubmit}
+              filteredQuestions={filteredQuestions}
+              questionTypeOf={questionTypeOf}
+              deletingQuestionBusyId={deletingQuestionBusyId}
+              deleteQuestionId={deleteQuestionId}
+              setDeleteQuestionId={setDeleteQuestionId}
+              startEditQuestion={startEditQuestion}
+              handleDeleteQuestion={handleDeleteQuestion}
+            />
+          </>
         )}
 
         {tab === 'sessions' && (

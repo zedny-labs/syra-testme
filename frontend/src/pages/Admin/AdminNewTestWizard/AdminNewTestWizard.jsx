@@ -14,6 +14,7 @@ import {
 import { normalizeProctoringConfig } from '../../../utils/proctoringRequirements'
 import { readPaginatedItems } from '../../../utils/pagination'
 import useLanguage from '../../../hooks/useLanguage'
+import ExamQuestionPanel from '../ExamQuestionPanel/ExamQuestionPanel'
 import SectionsManager from '../SectionsManager/SectionsManager'
 import styles from './AdminNewTestWizard.module.scss'
 
@@ -2473,7 +2474,10 @@ export default function AdminNewTestWizard() {
           </p>
 
           {examId && (
-            <SectionsManager examId={examId} />
+            <>
+              <SectionsManager examId={examId} />
+              <ExamQuestionPanel examId={examId} questions={questions} onUpdate={setQuestions} questionTypes={QUESTION_TYPES} />
+            </>
           )}
           {!examId && (
             <div className={styles.questionInitCard}>
