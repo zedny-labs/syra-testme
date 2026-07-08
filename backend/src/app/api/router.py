@@ -12,6 +12,7 @@ from .routes import (
     categories,
     grading_scales,
     question_pools,
+    exam_sections,
     dashboard,
     proctoring,
     notifications,
@@ -44,6 +45,7 @@ router.include_router(schedules.router, prefix="/schedules", tags=["schedules"])
 router.include_router(categories.router, prefix="/categories", tags=["categories"])
 router.include_router(grading_scales.router, prefix="/grading-scales", tags=["grading-scales"])
 router.include_router(question_pools.router, prefix="/question-pools", tags=["question-pools"])
+router.include_router(exam_sections.router, tags=["exam-sections"])
 router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 router.include_router(proctoring.router, prefix="/proctoring", tags=["proctoring"])
 router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
