@@ -883,6 +883,18 @@ log "Building backend image..."
   compose build backend
 )
 
+# Local-DB mode: the migration runs with --no-deps, so the Postgres container
+# must already be up (else 'db' does not resolve). No-op in external/production
+# mode (RUN_LOCAL_DB=0), so main is unaffected.
+if [[ "$RUN_LOCAL_DB" == "1" ]]; then
+  log "Starting local database container before migrations..."
+  (
+    cd "$REPO_ROOT"
+    compose up -d db
+  )
+  wait_for_service_health db 120 || log "WARNING: db health not confirmed; migration will surface a clear error if it can't connect."
+fi
+
 log "Running database migrations (timeout: ${DB_MIGRATION_TIMEOUT_SECONDS}s)..."
 (
   cd "$REPO_ROOT"
