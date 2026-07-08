@@ -10,7 +10,7 @@ from ...core.i18n import translate as _t
 from ...models import Exam, ExamSection, ExamStatus, Question, QuestionPool, RoleEnum
 from ...schemas import ExamSectionCreate, ExamSectionFromPool, ExamSectionRead, ExamSectionReorder, ExamSectionUpdate, Message
 from .question_pools import _load_pool_questions
-from ..deps import ensure_exam_owner, get_db_dep, parse_uuid_param, require_permission
+from ..deps import ensure_exam_owner, get_current_user, get_db_dep, learner_can_access_exam, parse_uuid_param, require_permission
 
 router = APIRouter()
 
@@ -187,5 +187,25 @@ def reorder_sections(
     return db.scalars(
         select(ExamSection)
         .where(ExamSection.exam_id == exam.id)
+        .order_by(ExamSection.order.asc())
+    ).all()
+
+
+@router.get("/exams/{exam_id}/learner-sections", response_model=list[ExamSectionRead])
+def list_sections_for_learner(
+    exam_id: str,
+    db: Session = Depends(get_db_dep),
+    current=Depends(get_current_user),
+):
+    exam_pk = parse_uuid_param(exam_id, detail=_t("test_not_found"))
+    exam = db.get(Exam, exam_pk)
+    if current.role == RoleEnum.LEARNER:
+        if not learner_can_access_exam(db, exam, current):
+            raise HTTPException(status_code=404, detail=_t("test_not_found"))
+    elif not exam:
+        raise HTTPException(status_code=404, detail=_t("test_not_found"))
+    return db.scalars(
+        select(ExamSection)
+        .where(ExamSection.exam_id == exam_pk)
         .order_by(ExamSection.order.asc())
     ).all()
