@@ -15,6 +15,22 @@ from ..deps import ensure_exam_owner, get_db_dep, parse_uuid_param, require_perm
 router = APIRouter()
 
 
+def ensure_general_section(db: Session, exam: Exam) -> ExamSection:
+    """Return the existing General (manual) section for *exam*, or create one."""
+    section = db.scalar(
+        select(ExamSection).where(ExamSection.exam_id == exam.id, ExamSection.source_pool_id.is_(None))
+        .order_by(ExamSection.order.asc())
+    )
+    if section:
+        return section
+    max_order = db.scalar(select(func.max(ExamSection.order)).where(ExamSection.exam_id == exam.id))
+    next_order = (max_order + 1) if max_order is not None else 0
+    section = ExamSection(exam_id=exam.id, title="General", order=next_order)
+    db.add(section)
+    db.flush()
+    return section
+
+
 def _get_owned_exam(db: Session, exam_id: str, current) -> Exam:
     exam_pk = parse_uuid_param(exam_id, detail=_t("test_not_found"))
     exam = db.get(Exam, exam_pk)
