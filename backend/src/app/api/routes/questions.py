@@ -149,7 +149,7 @@ def update_question(question_id: str, body: QuestionBase, db: Session = Depends(
     ensure_exam_owner(q.exam, current, detail=_t("not_allowed"), status_code=403)
     if q.exam and q.exam.status == ExamStatus.OPEN:
         raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
-    protected = {"exam_id", "created_at"}
+    protected = {"exam_id", "created_at", "section_id"}
     now = datetime.now(timezone.utc)
     for field, value in sanitize_question_payload(body.model_dump()).items():
         if field not in protected:
