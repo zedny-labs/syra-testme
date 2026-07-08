@@ -76,11 +76,12 @@ def _exclude_internal_library_courses(statement):
 
 @router.get("/", response_model=list[CourseRead])
 def list_courses(db: Session = Depends(get_db_dep), current=Depends(get_current_user)):
-    query = select(Course)
+    # The "Question Pool Library" course is internal storage for question pools
+    # (see question_pools._ensure_pool_library_exam) and must never surface as a
+    # selectable course — for learners OR for admins/instructors in the test wizard.
+    query = _exclude_internal_library_courses(select(Course))
     if current.role == RoleEnum.LEARNER:
-        query = _exclude_internal_library_courses(
-            query.where(Course.status == CourseStatus.PUBLISHED)
-        )
+        query = query.where(Course.status == CourseStatus.PUBLISHED)
     else:
         ensure_permission(db, current, "Edit Tests")
         query = query.where(Course.created_by_id == current.id)
