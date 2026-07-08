@@ -174,6 +174,8 @@ _RUNTIME_SCALAR_FIELDS = [
     "auto_logout_after_finish_or_pause",
     "creation_method",
     "score_report_include_certificate_status",
+    "sequential_sections",
+    "allow_revisit_sections",
 ]
 
 _RUNTIME_COMPLEX_FIELDS = {
@@ -190,6 +192,8 @@ _RUNTIME_DEFAULTS = {
     "allow_retake": False,
     "auto_logout_after_finish_or_pause": False,
     "score_report_include_certificate_status": False,
+    "sequential_sections": False,
+    "allow_revisit_sections": True,
 }
 
 

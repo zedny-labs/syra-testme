@@ -284,6 +284,7 @@ class Attempt(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     identity_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     face_signature: Mapped[dict | list | None] = mapped_column(JSON)
+    sections_finished: Mapped[list | None] = mapped_column(JSON, default=list)
     base_head_pose: Mapped[dict | None] = mapped_column(JSON)
     id_doc_path: Mapped[str | None] = mapped_column(String(512))
     selfie_path: Mapped[str | None] = mapped_column(String(512))
@@ -583,6 +584,8 @@ class ExamRuntimeConfig(Base):
     auto_logout_after_finish_or_pause: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     creation_method: Mapped[str | None] = mapped_column(String(128))
     score_report_include_certificate_status: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    sequential_sections: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    allow_revisit_sections: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
     exam = relationship("Exam", back_populates="runtime_config_rel")
     instruction_items = relationship("ExamRuntimeInstructionItem", back_populates="runtime_config", cascade="all, delete-orphan", order_by="ExamRuntimeInstructionItem.position")
