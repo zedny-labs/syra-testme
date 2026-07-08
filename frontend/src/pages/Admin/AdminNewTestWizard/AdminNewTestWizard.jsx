@@ -2474,13 +2474,13 @@ export default function AdminNewTestWizard() {
           </p>
 
           {examId && (
-            <>
+            <div className={styles.questionsStack}>
               <SectionsManager
                 examId={examId}
                 onChange={() => adminApi.getQuestions(examId).then(({ data }) => setQuestions(data || [])).catch(() => {})}
               />
               <ExamQuestionPanel examId={examId} questions={questions} onUpdate={setQuestions} questionTypes={QUESTION_TYPES} />
-            </>
+            </div>
           )}
           {!examId && (
             <div className={styles.questionInitCard}>

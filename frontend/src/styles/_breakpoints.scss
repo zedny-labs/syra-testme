@@ -1,0 +1,40 @@
+// ============================================================
+//  Canonical responsive breakpoints + helpers
+//  Auto-injected into every SCSS file via vite additionalData:
+//      @use 'breakpoints' as bp;
+//  Usage:
+//      @include bp.below(lg) { ... }        // <= 1024px
+//      @include bp.above(md) { ... }        // >= 768px
+//      @include bp.between(sm, lg) { ... }  // 640px .. <1024px
+//  Keep values in sync with src/hooks/useMediaQuery.js (BREAKPOINTS).
+// ============================================================
+
+@use 'sass:map';
+
+$breakpoints: (
+  xs: 480px,   // phone
+  sm: 640px,   // large phone / small tablet portrait
+  md: 768px,   // tablet portrait
+  lg: 1024px,  // tablet landscape / split-screen / small laptop
+  xl: 1280px,  // desktop
+);
+
+@function get($name) {
+  @if not map.has-key($breakpoints, $name) {
+    @error "Unknown breakpoint `#{$name}`. Valid: #{map.keys($breakpoints)}.";
+  }
+  @return map.get($breakpoints, $name);
+}
+
+// max-width uses (bp - 0.02px) so `below(x)` and `above(x)` never both match at exactly x.
+@mixin below($name) {
+  @media (max-width: #{get($name) - 0.02px}) { @content; }
+}
+
+@mixin above($name) {
+  @media (min-width: #{get($name)}) { @content; }
+}
+
+@mixin between($min, $max) {
+  @media (min-width: #{get($min)}) and (max-width: #{get($max) - 0.02px}) { @content; }
+}

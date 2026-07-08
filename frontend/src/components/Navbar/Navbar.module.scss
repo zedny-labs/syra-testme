@@ -54,7 +54,8 @@
   border-radius: 1px;
 }
 
-@media (max-width: 640px) {
+/* Show the drawer toggle whenever the sidebar is a drawer (below lg / 1024px) */
+@include bp.below(lg) {
   .hamburger { display: flex; }
 }
 
