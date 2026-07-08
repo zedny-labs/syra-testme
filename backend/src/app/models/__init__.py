@@ -135,11 +135,13 @@ class Node(Base):
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("created_by_id", "name", name="uq_category_owner_name"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[CategoryType] = mapped_column(SAEnum(CategoryType), default=CategoryType.TEST, nullable=False)
     description: Mapped[str | None] = mapped_column(String(1024))
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
 
     exams = relationship("Exam", back_populates="category")
 
@@ -150,6 +152,7 @@ class GradingScale(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     labels: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
 
     exams = relationship("Exam", back_populates="grading_scale")
 
@@ -428,11 +431,13 @@ class SurveyResponse(Base):
 
 class UserGroup(Base):
     __tablename__ = "user_groups"
+    __table_args__ = (UniqueConstraint("created_by_id", "name", name="uq_user_group_owner_name"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1024))
     member_ids: Mapped[list | None] = mapped_column(JSON)
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

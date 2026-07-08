@@ -162,12 +162,14 @@ def seed(*, force: bool = False):
                     name=f"Seed {run_tag} Category {i}",
                     type=CategoryType.TEST,
                     description=f"Seeded category {i}",
+                    created_by_id=instructor.id,
                 )
             )
         db.add_all(categories)
 
         scale = GradingScale(
             name=f"Seed {run_tag} Standard Scale",
+            created_by_id=instructor.id,
             labels=[
                 {"label": "A", "min_score": 90, "max_score": 100},
                 {"label": "B", "min_score": 80, "max_score": 89.99},
@@ -358,6 +360,7 @@ def seed(*, force: bool = False):
                     name=f"Seed {run_tag} Group {i}",
                     description=f"Seeded learner group {i}",
                     member_ids=members,
+                    created_by_id=admin.id,
                 )
             )
         db.add_all(groups)

@@ -53,15 +53,16 @@ def seed():
         db.flush()
 
         # --- Category ---
-        cat_test = Category(name="Final Exams", type=CategoryType.TEST, description="End-of-semester assessments")
-        cat_quiz = Category(name="Quizzes", type=CategoryType.TEST, description="Quick knowledge checks")
-        cat_survey = Category(name="Course Feedback", type=CategoryType.SURVEY, description="Student satisfaction surveys")
+        cat_test = Category(name="Final Exams", type=CategoryType.TEST, description="End-of-semester assessments", created_by_id=instructor.id)
+        cat_quiz = Category(name="Quizzes", type=CategoryType.TEST, description="Quick knowledge checks", created_by_id=instructor.id)
+        cat_survey = Category(name="Course Feedback", type=CategoryType.SURVEY, description="Student satisfaction surveys", created_by_id=instructor.id)
         db.add_all([cat_test, cat_quiz, cat_survey])
         db.flush()
 
         # --- Grading Scale ---
         scale = GradingScale(
             name="Standard Letter Grade",
+            created_by_id=instructor.id,
             labels=[
                 {"label": "A+", "min_score": 95, "max_score": 100},
                 {"label": "A", "min_score": 90, "max_score": 94.99},

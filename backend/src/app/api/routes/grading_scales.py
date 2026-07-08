@@ -20,12 +20,23 @@ def _clean_required_text(value: str | None, field_name: str) -> str:
     return cleaned
 
 
-def _ensure_unique_scale_name(db: Session, name: str, existing_scale_id=None):
+def _ensure_unique_scale_name(db: Session, name: str, owner_id, existing_scale_id=None):
     existing = db.scalar(
-        select(GradingScale).where(func.lower(GradingScale.name) == name.lower())
+        select(GradingScale).where(
+            GradingScale.created_by_id == owner_id,
+            func.lower(GradingScale.name) == name.lower(),
+        )
     )
     if existing and getattr(existing, "id", None) != existing_scale_id:
         raise HTTPException(status_code=409, detail=_t("grading_scale_exists"))
+
+
+def _get_owned_scale_or_404(db: Session, scale_id: str, current) -> GradingScale:
+    scale_pk = parse_uuid_param(scale_id, detail=_t("not_found"))
+    scale = db.get(GradingScale, scale_pk)
+    if not scale or scale.created_by_id != current.id:
+        raise HTTPException(status_code=404, detail=_t("not_found"))
+    return scale
 
 
 def _normalize_scale_bands(labels: list[dict]) -> list[dict]:
@@ -74,8 +85,8 @@ def create_scale(
     current=Depends(require_permission("Manage Grading Scales", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
 ):
     payload = _normalize_scale_payload(body)
-    _ensure_unique_scale_name(db, payload["name"])
-    scale = GradingScale(**payload)
+    _ensure_unique_scale_name(db, payload["name"], current.id)
+    scale = GradingScale(**payload, created_by_id=current.id)
     db.add(scale)
     try:
         db.commit()
@@ -97,16 +108,14 @@ def create_scale(
 
 @router.get("/", response_model=list[GradingScaleRead])
 def list_scales(db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Grading Scales", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR))):
-    return db.scalars(select(GradingScale).order_by(GradingScale.name.asc())).all()
+    return db.scalars(
+        select(GradingScale).where(GradingScale.created_by_id == current.id).order_by(GradingScale.name.asc())
+    ).all()
 
 
 @router.get("/{scale_id}", response_model=GradingScaleRead)
 def get_scale(scale_id: str, db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Grading Scales", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR))):
-    scale_pk = parse_uuid_param(scale_id, detail=_t("not_found"))
-    scale = db.get(GradingScale, scale_pk)
-    if not scale:
-        raise HTTPException(status_code=404, detail=_t("not_found"))
-    return scale
+    return _get_owned_scale_or_404(db, scale_id, current)
 
 
 @router.put("/{scale_id}", response_model=GradingScaleRead)
@@ -117,12 +126,9 @@ def update_scale(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Grading Scales", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
 ):
-    scale_pk = parse_uuid_param(scale_id, detail=_t("not_found"))
-    scale = db.get(GradingScale, scale_pk)
-    if not scale:
-        raise HTTPException(status_code=404, detail=_t("not_found"))
+    scale = _get_owned_scale_or_404(db, scale_id, current)
     payload = _normalize_scale_payload(body)
-    _ensure_unique_scale_name(db, payload["name"], existing_scale_id=scale.id)
+    _ensure_unique_scale_name(db, payload["name"], current.id, existing_scale_id=scale.id)
     scale.name = payload["name"]
     scale.labels = payload["labels"]
     db.add(scale)
@@ -147,10 +153,7 @@ def delete_scale(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Grading Scales", RoleEnum.ADMIN)),
 ):
-    scale_pk = parse_uuid_param(scale_id, detail=_t("not_found"))
-    scale = db.get(GradingScale, scale_pk)
-    if not scale:
-        raise HTTPException(status_code=404, detail=_t("not_found"))
+    scale = _get_owned_scale_or_404(db, scale_id, current)
     usage_count = int(
         db.scalar(select(func.count(Exam.id)).where(Exam.grading_scale_id == scale.id))
         or 0
