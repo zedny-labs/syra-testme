@@ -10,6 +10,11 @@
   align-items: center;
   gap: 0.55rem;
   width: 100%;
+  box-sizing: border-box;
+  /* Native <select>/<input> in this form render ~1px taller than an
+     icon-driven flex button; pin the trigger to the same box so it lines up
+     with the learner select on the same row. */
+  min-height: 2.35rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
