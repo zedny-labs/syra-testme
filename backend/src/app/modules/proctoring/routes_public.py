@@ -1242,10 +1242,22 @@ AUTO_SUBMIT_EXCLUDED_EVENT_TYPES = {
 }
 
 
+# Ignore low-confidence AI detections when deciding whether to auto-submit. A
+# degraded/unavailable model that slips through and emits noisy detections should
+# never be able to force-submit a real student. Deterministic browser events
+# (fullscreen exit, etc.) carry no ai_confidence and always count.
+AUTO_SUBMIT_MIN_CONFIDENCE = 0.6
+
+
 def _count_auto_submit_alerts(events: list[ProctoringEvent]) -> int:
     count = 0
     for event in events:
         if event.event_type in AUTO_SUBMIT_EXCLUDED_EVENT_TYPES:
+            continue
+        confidence = event.ai_confidence
+        if confidence is not None and confidence < AUTO_SUBMIT_MIN_CONFIDENCE:
+            # Unreliable AI detection (e.g. from a degraded detector) — don't let
+            # it count toward force-submitting the attempt.
             continue
         count += 1
     return count
