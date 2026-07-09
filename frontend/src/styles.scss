@@ -123,7 +123,11 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
-  scrollbar-gutter: stable;
+  /* NOTE: `scrollbar-gutter: stable` was removed. On macOS overlay scrollbars it
+     reserves a phantom right-side gutter that shifts page content sideways on every
+     page (harmless on Windows/Linux, invisible there). Root horizontal overflow is
+     already clamped by `body { overflow-x: hidden }`. */
+  overflow-x: hidden;
   scroll-padding-top: calc(var(--navbar-height) + 1rem);
   background-color: var(--color-bg);
 }
