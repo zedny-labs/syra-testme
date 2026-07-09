@@ -11,15 +11,6 @@ const VISUAL_FRAME_INTERVAL_FLOOR_MS = 500
 const VISUAL_FRAME_INTERVAL_DEFAULT_MS = 750
 const STANDARD_CAPTURE_RESOLUTION = { width: 640, height: 480 }
 const HIGH_DETAIL_CAPTURE_RESOLUTION = { width: 960, height: 720 }
-const DETECTOR_LABEL_KEYS = {
-  face_detection: 'proctor_detector_face',
-  multi_face: 'proctor_detector_multi_face',
-  object_detection: 'proctor_detector_forbidden_obj',
-  eye_tracking: 'proctor_detector_eye_tracking',
-  head_pose_detection: 'proctor_detector_head_pose',
-  audio_detection: 'proctor_detector_audio',
-  mouth_detection: 'proctor_detector_mouth',
-}
 
 function readNumber(value, fallback) {
   const numeric = Number(value)
@@ -101,8 +92,6 @@ export default function ProctorOverlay({
   const [status, setStatus] = useState('disconnected')
   const [alerts, setAlerts] = useState([])
   const [cameraError, setCameraError] = useState('')
-  const [detectorStatus, setDetectorStatus] = useState({})
-  const [detectorStatusReady, setDetectorStatusReady] = useState(false)
   const wsRef = useRef(null)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -185,34 +174,10 @@ export default function ProctorOverlay({
     onStatusChange?.(status)
   }, [status, onStatusChange])
 
-  useEffect(() => {
-    setDetectorStatus({})
-    setDetectorStatusReady(false)
-  }, [attemptId])
-
-  const detectorHealth = useMemo(() => (
-    Object.entries(DETECTOR_LABEL_KEYS)
-      .filter(([key]) => Boolean(config?.[key]))
-      .map(([key, labelKey]) => {
-        let state = 'pending'
-        if (detectorStatusReady) {
-          state = detectorStatus[key] === false ? 'degraded' : 'active'
-        }
-        return { key, label: t(labelKey), state }
-      })
-  ), [config, detectorStatus, detectorStatusReady, t])
-  const detectorIssues = useMemo(
-    () => detectorHealth.filter((entry) => entry.state === 'degraded'),
-    [detectorHealth],
-  )
-  const detectorSummary = useMemo(() => {
-    if (detectorHealth.length === 0) return ''
-    if (!detectorStatusReady) return t('proctor_checking_detectors')
-    if (detectorIssues.length === 0) return t('proctor_all_detectors_active')
-    return t('proctor_detectors_unavailable')
-      .replace('{{count}}', detectorIssues.length)
-      .replace('{{names}}', detectorIssues.map((entry) => entry.label).join(', '))
-  }, [detectorHealth, detectorIssues, detectorStatusReady, t])
+  // Detector health (which AI models are active/degraded) is intentionally NOT
+  // shown to learners — it exposes internal system state they can't act on and
+  // makes proctoring look broken when a model is degraded. Real detection alerts
+  // are still shown; full detector health remains on the admin monitoring view.
 
   const pushAlert = useCallback((rawAlert) => {
     const event = normalizeIncomingAlert(rawAlert)
@@ -686,30 +651,16 @@ export default function ProctorOverlay({
               intentionalCloseRef.current = true
             }
           } else if (msg.type === 'error') {
-            if (typeof msg.detail === 'string') {
-              if (msg.detail.includes('Object detection model unavailable')) {
-                setDetectorStatus((prev) => ({ ...prev, object_detection: false }))
-                setDetectorStatusReady(true)
-              } else if (msg.detail.includes('Face detection model unavailable')) {
-                setDetectorStatus((prev) => ({ ...prev, face_detection: false, multi_face: false }))
-                setDetectorStatusReady(true)
-              }
+            // Detector-model degradation ("… model unavailable") is internal — the
+            // learner can't act on it and it makes proctoring look broken, so we
+            // don't surface it. Other genuine errors still show.
+            const detail = typeof msg.detail === 'string' ? msg.detail : ''
+            if (!/model unavailable/i.test(detail)) {
+              emitSystemErrorRef.current(msg.detail)
             }
-            emitSystemErrorRef.current(msg.detail)
           } else if (msg.type === 'detection_status') {
-            setDetectorStatus((prev) => ({ ...prev, ...msg }))
-            setDetectorStatusReady(true)
-            // Server reports which detection modules are actually active
-            const disabled = Object.entries(msg)
-              .filter(([k, v]) => k !== 'type' && v === false)
-              .map(([k]) => k.replace(/_/g, ' '))
-            if (disabled.length > 0) {
-              emitRateLimitedSystemErrorRef.current(
-                'detection_status',
-                `Some detectors are disabled (model unavailable): ${disabled.join(', ')}`,
-                60000,
-              )
-            }
+            // Recorded for the admin monitoring view; learners are never told which
+            // detectors are active or degraded.
           } else if (msg.type === 'ping') {
             if (ws.readyState === WebSocket.OPEN) {
               try {
@@ -827,30 +778,6 @@ export default function ProctorOverlay({
 
       {cameraError && (
         <div className={styles.cameraError}>{cameraError}</div>
-      )}
-
-      {detectorHealth.length > 0 && (
-        <div className={styles.detectorPanel}>
-          <div className={styles.detectorHeader}>
-            <span className={styles.detectorTitle}>{t('proctor_detector_health')}</span>
-            <span className={`${styles.detectorSummary} ${detectorIssues.length > 0 ? styles.detectorSummaryWarn : ''}`}>
-              {detectorSummary}
-            </span>
-          </div>
-          <div className={styles.detectorGrid}>
-            {detectorHealth.map((entry) => (
-              <div
-                key={entry.key}
-                className={`${styles.detectorChip} ${styles[`detectorChip${entry.state.charAt(0).toUpperCase()}${entry.state.slice(1)}`]}`}
-              >
-                <span className={styles.detectorChipLabel}>{entry.label}</span>
-                <span className={styles.detectorChipState}>
-                  {entry.state === 'active' ? t('proctor_detector_active') : entry.state === 'degraded' ? t('proctor_detector_unavailable') : t('proctor_detector_checking')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
       {alerts.length > 0 && (
