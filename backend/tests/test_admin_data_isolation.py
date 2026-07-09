@@ -152,3 +152,21 @@ def test_create_user_stamps_owner():
     admin_a = _admin(db, "adminA")
     learner = _make_learner(_svc(db), admin_a, "lrn")
     assert learner.created_by_id == admin_a.id
+
+
+def test_scheduling_picker_is_owner_scoped(monkeypatch):
+    import app.modules.users.service as usvc
+    monkeypatch.setattr(usvc, "load_permission_rows", lambda db: [
+        {"feature": "Assign Schedules", "admin": True},
+        {"feature": "Manage Users", "admin": True},
+    ])
+    db = _new_session()
+    admin_a = _admin(db, "adminA")
+    admin_b = _admin(db, "adminB")
+    svc = _svc(db)
+    learner = _make_learner(svc, admin_a, "lrn")
+
+    a_ids = {str(u.id) for u in svc.list_learners_for_scheduling(current=admin_a, search=None, is_active=None)}
+    b_ids = {str(u.id) for u in svc.list_learners_for_scheduling(current=admin_b, search=None, is_active=None)}
+    assert str(learner.id) in a_ids, "owner cannot see own learner in picker"
+    assert str(learner.id) not in b_ids, "picker leaked another admin's learner"

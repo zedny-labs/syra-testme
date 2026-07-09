@@ -156,6 +156,7 @@ class UserService:
                     )
                 )
                 .where(User.role == RoleEnum.LEARNER)
+                .where(User.created_by_id == current.id)
             )
             if is_active is not None:
                 query = query.where(User.is_active == is_active)
