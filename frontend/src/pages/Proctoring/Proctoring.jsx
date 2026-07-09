@@ -265,6 +265,11 @@ export default function Proctoring() {
   const [cameraDark, setCameraDark] = useState(false)
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [autoSubmitState, setAutoSubmitState] = useState(null)
+  // True while the learner has left fullscreen during a fullscreen-enforced exam.
+  // Blocks/blurs the exam behind a modal until they click "Return to full screen"
+  // (a real click is a valid gesture for requestFullscreen(); the fullscreenchange
+  // event is not, which is why silent auto-re-entry never worked).
+  const [fullscreenLost, setFullscreenLost] = useState(false)
   const wsConnectedRef = useRef(false)
   const screenShareRequestRef = useRef(null)
   const screenShareEstablishedRef = useRef(false)
@@ -1216,17 +1221,20 @@ export default function Proctoring() {
           emitProctoringNotice('fullscreen_ping', t('proctor_fullscreen_sync_error'), 'LOW')
         })
       }
-      if (!document.fullscreenElement) {
-        // When screen capture is active, do NOT call requestFullscreen() —
-        // it kills the screen share track. Warn the user but keep recording.
-        if (screenCaptureActive) {
-          sendBrowserViolation('FULLSCREEN_EXIT', 'MEDIUM', t('proctor_violation_fullscreen_recording'))
-          return
-        }
-        sendBrowserViolation('FULLSCREEN_EXIT', 'HIGH', t('proctor_violation_fullscreen_exam'))
-        document.documentElement.requestFullscreen?.().catch(() => {
-          emitProctoringNotice('fullscreen_restore', t('proctor_fullscreen_required'), 'MEDIUM', 'FULLSCREEN_REQUIRED', 5000)
-        })
+      if (document.fullscreenElement) {
+        // Back in fullscreen — release the block.
+        setFullscreenLost(false)
+      } else {
+        // Left fullscreen: log the violation and block/blur the exam behind the
+        // "Return to full screen" modal. We do NOT call requestFullscreen() here —
+        // the fullscreenchange event is not a user gesture, so it would fail; the
+        // modal button (a real click) performs the re-entry instead.
+        sendBrowserViolation(
+          'FULLSCREEN_EXIT',
+          screenCaptureActive ? 'MEDIUM' : 'HIGH',
+          screenCaptureActive ? t('proctor_violation_fullscreen_recording') : t('proctor_violation_fullscreen_exam'),
+        )
+        setFullscreenLost(true)
       }
     }
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -1850,7 +1858,7 @@ export default function Proctoring() {
 
   const currentQ = questions[currentIdx]
   const currentQType = currentQ?.question_type || 'TEXT'
-  const interactionLocked = submitting || Boolean(autoSubmitState)
+  const interactionLocked = submitting || Boolean(autoSubmitState) || fullscreenLost
   // When the hub is active, navigation is scoped to the active section. We map
   // between the flat `currentIdx` (index into the whole `questions` array, which
   // answer-saving/timing rely on) and the position of that question WITHIN the
@@ -1906,6 +1914,48 @@ export default function Proctoring() {
     <AnimatePresence>
       {toast && (
         <ViolationToast event={toast} onClose={() => setToast(null)} />
+      )}
+    </AnimatePresence>
+  )
+
+  const handleReturnFullscreen = () => {
+    // A click IS a valid user gesture, so this re-entry actually succeeds.
+    document.documentElement.requestFullscreen?.()
+      .then(() => setFullscreenLost(false))
+      .catch(() => { /* fullscreenchange will clear it if it succeeds another way */ })
+  }
+
+  // Blocking overlay shown when the learner has left a fullscreen-enforced exam.
+  // The fixed, blurred backdrop covers (and blurs) the whole test and swallows
+  // clicks, so the exam can't be used until they return to full screen.
+  const fullscreenBlockNode = (
+    <AnimatePresence>
+      {fullscreenLost && (
+        <motion.div
+          className={styles.fullscreenBlock}
+          role="alertdialog"
+          aria-modal="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <motion.div
+            className={`${styles.fullscreenCard} glass`}
+            initial={{ scale: 0.96, y: 8 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <svg className={styles.fullscreenIcon} width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+            <h2 className={styles.fullscreenTitle}>{t('proctor_fullscreen_blocked_title')}</h2>
+            <p className={styles.fullscreenBody}>{t('proctor_fullscreen_blocked_body')}</p>
+            <button type="button" className={styles.fullscreenBtn} onClick={handleReturnFullscreen}>
+              {t('proctor_fullscreen_return_btn')}
+            </button>
+          </motion.div>
+        </motion.div>
       )}
     </AnimatePresence>
   )
@@ -2041,6 +2091,7 @@ export default function Proctoring() {
         </div>
         {proctorPane}
         {toastNode}
+        {fullscreenBlockNode}
       </div>
     )
   }
@@ -2056,6 +2107,7 @@ export default function Proctoring() {
         </div>
         {proctorPane}
         {toastNode}
+        {fullscreenBlockNode}
       </div>
     )
   }
@@ -2399,6 +2451,7 @@ export default function Proctoring() {
 
       {proctorPane}
       {toastNode}
+      {fullscreenBlockNode}
     </div>
   )
 }
