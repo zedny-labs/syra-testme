@@ -195,3 +195,70 @@ def test_management_list_and_get_user_owner_scoped():
     with pytest.raises(HTTPException) as exc:
         svc.get_user(str(learner.id), actor_id=admin_b.id)
     assert exc.value.status_code == 404
+
+
+from app.api.routes import search as search_routes
+
+
+def test_search_users_is_owner_scoped(monkeypatch):
+    monkeypatch.setattr(search_routes, "load_permission_rows", lambda db: [
+        {"feature": "Manage Users", "admin": True},
+        {"feature": "View Attempt Analysis", "admin": True},
+    ])
+    db = _new_session()
+    admin_a = _admin(db, "adminA")
+    admin_b = _admin(db, "adminB")
+    svc = _svc(db)
+    learner = _make_learner(svc, admin_a, "srchlrn")
+    db.flush()
+
+    result_a = search_routes.search(q=learner.name, db=db, current=admin_a)
+    result_b = search_routes.search(q=learner.name, db=db, current=admin_b)
+
+    a_ids = {str(u["id"]) for u in result_a["users"]}
+    b_ids = {str(u["id"]) for u in result_b["users"]}
+    assert str(learner.id) in a_ids, "owner cannot find own learner in search"
+    assert str(learner.id) not in b_ids, "search leaked another admin's learner"
+
+
+def test_group_membership_is_owner_scoped():
+    db = _new_session()
+    admin_a = _admin(db, "adminA")
+    admin_b = _admin(db, "adminB")
+    svc = _svc(db)
+    learner = _make_learner(svc, admin_a, "grplrn")
+    db.flush()
+
+    group_a = user_groups_routes.create_group(
+        body=UserGroupCreate(name="A-Group", description=None, member_ids=[]),
+        db=db,
+        current=admin_a,
+    )
+    group_b = user_groups_routes.create_group(
+        body=UserGroupCreate(name="B-Group", description=None, member_ids=[]),
+        db=db,
+        current=admin_b,
+    )
+
+    # admin B must NOT be able to add admin A's learner.
+    with pytest.raises(HTTPException) as exc:
+        user_groups_routes.add_group_member(
+            group_id=str(group_b.id),
+            payload={"user_id": str(learner.id)},
+            db=db,
+            current=admin_b,
+        )
+    assert exc.value.status_code == 404
+
+    # admin A CAN add its own learner to its own group.
+    msg = user_groups_routes.add_group_member(
+        group_id=str(group_a.id),
+        payload={"user_id": str(learner.id)},
+        db=db,
+        current=admin_a,
+    )
+    assert msg.detail
+    members = user_groups_routes.list_group_members(
+        group_id=str(group_a.id), db=db, current=admin_a
+    )
+    assert any(str(m.id) == str(learner.id) for m in members)

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from ...models import Attempt, Exam, ExamStatus, RoleEnum, User
+from ...models import Attempt, Exam, ExamStatus, RoleEnum, Schedule, User
 from ...services.normalized_relations import is_exam_pool_library
 from ...core.i18n import translate as _t
 from ..deps import get_current_user, get_db_dep, learner_can_access_exam, load_permission_rows, permission_allowed
@@ -66,7 +66,24 @@ def search(q: str, db: Session = Depends(get_db_dep), current=Depends(get_curren
 
     users = []
     if current.role in {RoleEnum.ADMIN, RoleEnum.INSTRUCTOR} and can_manage_users:
-        users = db.scalars(select(User).where((User.name.ilike(like_pattern)) | (User.email.ilike(like_pattern)) | (User.user_id.ilike(like_pattern)))).all()
+        actor_exam_ids = select(Exam.id).where(Exam.created_by_id == current.id)
+        users = db.scalars(
+            select(User).where(
+                (User.name.ilike(like_pattern))
+                | (User.email.ilike(like_pattern))
+                | (User.user_id.ilike(like_pattern))
+            ).where(
+                or_(
+                    User.created_by_id == current.id,
+                    User.id.in_(
+                        select(Attempt.user_id).where(Attempt.exam_id.in_(actor_exam_ids))
+                    ),
+                    User.id.in_(
+                        select(Schedule.user_id).where(Schedule.exam_id.in_(actor_exam_ids))
+                    ),
+                )
+            )
+        ).all()
 
     return {
         "exams": [{"id": e.id, "title": e.title, "status": e.status} for e in exams],
