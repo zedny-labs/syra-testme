@@ -1174,7 +1174,7 @@ export default function AdminManageTestPage() {
       if (needsCategories) tasks.push(['categories', adminApi.categories(requestOptions)])
       if (needsQuestions) tasks.push(['questions', adminApi.getQuestions(id, requestOptions)])
       if (needsSessions) tasks.push(['sessions', adminApi.schedules({ ...requestOptions, params: { exam_id: id } })])
-      if (needsUsers) tasks.push(['users', adminApi.users({ role: 'LEARNER', skip: 0, limit: 200 }, requestOptions)])
+      if (needsUsers) tasks.push(['users', adminApi.learnersForScheduling({ is_active: true }, requestOptions)])
       if (needsAttempts) tasks.push(['attempts', adminApi.attempts({ exam_id: id, skip: 0, limit: 200 }, requestOptions)])
 
       if (tasks.length === 0) return
@@ -1199,7 +1199,11 @@ export default function AdminManageTestPage() {
       }
       if (needsQuestions) setQuestions(payloads.questions || [])
 
-      const resolvedUsers = payloads.users != null ? readPaginatedItems(payloads.users) : usersRef.current
+      // learnersForScheduling returns a plain UserRead[]; fall back to the
+      // paginated envelope reader for any other shape.
+      const resolvedUsers = payloads.users != null
+        ? (Array.isArray(payloads.users) ? payloads.users : readPaginatedItems(payloads.users))
+        : usersRef.current
       if (needsUsers) setUsers(resolvedUsers)
 
       const resolvedSessions = payloads.sessions != null
