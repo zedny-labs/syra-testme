@@ -111,6 +111,10 @@ def seed(*, force: bool = False):
             )
             db.add(instructor)
 
+        # Flush the owning accounts first so instructor.id is available to stamp
+        # on the learners they create (created_by_id).
+        db.flush()
+
         student1 = db.query(User).filter(User.email == "student1@example.com").first()
         if not student1:
             student1 = User(
@@ -120,6 +124,7 @@ def seed(*, force: bool = False):
                 role=RoleEnum.LEARNER,
                 hashed_password=hash_password("Student1234!"),
                 is_active=True,
+                created_by_id=instructor.id,
             )
             db.add(student1)
 
@@ -132,6 +137,7 @@ def seed(*, force: bool = False):
                 role=RoleEnum.LEARNER,
                 hashed_password=hash_password("Student1234!"),
                 is_active=True,
+                created_by_id=instructor.id,
             )
             db.add(student2)
         db.flush()
@@ -148,6 +154,7 @@ def seed(*, force: bool = False):
                 role=RoleEnum.LEARNER,
                 hashed_password=hash_password("Student1234!"),
                 is_active=True,
+                created_by_id=instructor.id,
             )
             bulk_learners.append(user)
             learners.append(user)
