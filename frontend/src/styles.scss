@@ -123,11 +123,12 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
-  /* NOTE: `scrollbar-gutter: stable` was removed. On macOS overlay scrollbars it
-     reserves a phantom right-side gutter that shifts page content sideways on every
-     page (harmless on Windows/Linux, invisible there). Root horizontal overflow is
-     already clamped by `body { overflow-x: hidden }`. */
-  overflow-x: hidden;
+  /* NOTE: `scrollbar-gutter: stable` was removed here (it reserved a phantom
+     right-side gutter under macOS overlay scrollbars, shifting content sideways).
+     Do NOT set `overflow-x` on <html>: a non-visible overflow on BOTH <html> and
+     <body> turns them into two nested scroll containers, which hijacks mouse-wheel
+     scrolling (page only moves by dragging the scrollbar). Horizontal overflow is
+     already clamped by `body { overflow-x: hidden }` — that is the single scroller. */
   scroll-padding-top: calc(var(--navbar-height) + 1rem);
   background-color: var(--color-bg);
 }
