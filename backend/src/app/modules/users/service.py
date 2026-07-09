@@ -78,6 +78,7 @@ class UserService:
                 query = query.where(
                     or_(
                         User.id == actor_id,
+                        User.created_by_id == actor_id,
                         User.id.in_(
                             select(Attempt.user_id).where(Attempt.exam_id.in_(actor_exam_ids))
                         ),
@@ -204,8 +205,7 @@ class UserService:
         user = self.repository.get_user(parse_uuid_param(user_id, detail=_t("user_not_found")))
         if not user:
             raise HTTPException(status_code=404, detail=_t("user_not_found"))
-        if actor_id and user.id != actor_id:
-            # Verify this user has attempted an exam created by the actor
+        if actor_id and user.id != actor_id and user.created_by_id != actor_id:
             has_connection = self.repository.db.scalar(
                 select(func.count(Attempt.id)).where(
                     Attempt.user_id == user.id,

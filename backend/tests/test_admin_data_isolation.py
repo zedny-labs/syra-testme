@@ -170,3 +170,28 @@ def test_scheduling_picker_is_owner_scoped(monkeypatch):
     b_ids = {str(u.id) for u in svc.list_learners_for_scheduling(current=admin_b, search=None, is_active=None)}
     assert str(learner.id) in a_ids, "owner cannot see own learner in picker"
     assert str(learner.id) not in b_ids, "picker leaked another admin's learner"
+
+
+def test_management_list_and_get_user_owner_scoped():
+    db = _new_session()
+    admin_a = _admin(db, "adminA")
+    admin_b = _admin(db, "adminB")
+    svc = _svc(db)
+    learner = _make_learner(svc, admin_a, "lrn")
+    db.flush()
+
+    from app.utils.pagination import PaginationParams
+    pg = PaginationParams(page=1, page_size=50, search=None, sort="created_at", order="desc")
+
+    a_items = svc.list_users(pagination=pg, role="LEARNER", is_active=None, actor_id=admin_a.id)["items"]
+    b_items = svc.list_users(pagination=pg, role="LEARNER", is_active=None, actor_id=admin_b.id)["items"]
+
+    def _item_id(i):
+        return i["id"] if isinstance(i, dict) else i.id
+
+    assert any(str(_item_id(i)) == str(learner.id) for i in a_items), "owner cannot see own learner in list"
+    assert not any(str(_item_id(i)) == str(learner.id) for i in b_items), "list leaked another admin's learner"
+
+    with pytest.raises(HTTPException) as exc:
+        svc.get_user(str(learner.id), actor_id=admin_b.id)
+    assert exc.value.status_code == 404
