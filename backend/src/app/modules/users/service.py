@@ -173,7 +173,7 @@ class UserService:
 
         return _learners_cache.get_or_compute(cache_key, _load_learners)
 
-    def create_user(self, *, body: UserCreate) -> User:
+    def create_user(self, *, body: UserCreate, current: User | None = None) -> User:
         payload = self._normalize_user_payload(body.model_dump(exclude={"password"}), partial=False)
         self._ensure_unique_email(payload["email"])
         self._ensure_unique_user_id(payload["user_id"])
@@ -185,6 +185,7 @@ class UserService:
             role=payload["role"],
             is_active=payload["is_active"],
             hashed_password=hash_password(body.password),
+            created_by_id=current.id if current is not None else None,
             created_at=now,
             updated_at=now,
         )

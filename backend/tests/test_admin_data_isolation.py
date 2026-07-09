@@ -122,3 +122,33 @@ def test_user_groups_are_isolated_per_admin():
     with pytest.raises(HTTPException) as exc:
         user_groups_routes.get_group(str(created.id), db=db, current=admin_b)
     assert exc.value.status_code == 404
+
+
+from app.modules.users.service import UserService
+from app.modules.users.repository import UserRepository
+from app.schemas import UserCreate
+
+
+def _svc(db):
+    return UserService(UserRepository(db))
+
+
+def _make_learner(svc, admin, label):
+    return svc.create_user(
+        body=UserCreate(
+            email=f"{label}-{uuid.uuid4().hex[:8]}@example.com",
+            name=label,
+            user_id=f"{label}-{uuid.uuid4().hex[:6]}",
+            role=RoleEnum.LEARNER,
+            is_active=True,
+            password="Passw0rd!",
+        ),
+        current=admin,
+    )
+
+
+def test_create_user_stamps_owner():
+    db = _new_session()
+    admin_a = _admin(db, "adminA")
+    learner = _make_learner(_svc(db), admin_a, "lrn")
+    assert learner.created_by_id == admin_a.id

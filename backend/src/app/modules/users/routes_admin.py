@@ -61,8 +61,7 @@ def create_user(
     current: User = Depends(require_permission("Manage Users", RoleEnum.ADMIN)),
     service: UserService = Depends(_service_from_db),
 ):
-    del current
-    return service.create_user(body=body)
+    return service.create_user(body=body, current=current)
 
 
 @router.get("/{user_id}", response_model=UserRead)
