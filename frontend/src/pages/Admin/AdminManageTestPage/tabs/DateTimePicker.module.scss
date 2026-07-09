@@ -1,0 +1,250 @@
+.dtp {
+  position: relative;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+/* ---- Trigger (mirrors the form's native inputs) ---- */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: start;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) { border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.triggerOpen {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.calIcon { color: var(--color-primary); flex: none; }
+.triggerText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placeholder .triggerText { color: var(--color-muted); font-weight: 500; }
+
+.chev { color: var(--color-muted); flex: none; transition: transform 0.18s ease; }
+.chevUp { transform: rotate(180deg); }
+
+/* ---- Popover ---- */
+.pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  width: min(320px, calc(100vw - 2.5rem));
+  padding: 0.85rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--card-border));
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 60%),
+    color-mix(in srgb, var(--color-surface) 92%, var(--color-bg));
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  transform-origin: top;
+}
+
+/* ---- Preset chips ---- */
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.chip {
+  padding: 0.34rem 0.66rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: color-mix(in srgb, var(--color-primary) 85%, var(--color-text));
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
+}
+
+/* ---- Calendar header ---- */
+.calHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.monthLabel {
+  font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  font-size: 0.94rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+}
+
+.navBtn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--color-border) 40%, transparent);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+}
+
+/* ---- Weekday labels + day grid ---- */
+.weekRow,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  padding-bottom: 0.3rem;
+}
+
+.day {
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s, transform 0.1s;
+
+  &:hover:not(:disabled) { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+  &:disabled { color: color-mix(in srgb, var(--color-muted) 55%, transparent); cursor: not-allowed; }
+}
+
+.outMonth { color: color-mix(in srgb, var(--color-muted) 70%, transparent); }
+
+.today {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+.selDay,
+.selDay:hover {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: var(--color-button-text);
+  border-color: transparent;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-primary) 34%, transparent);
+  transform: translateY(-1px);
+}
+
+/* ---- Time row ---- */
+.timeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  color: var(--color-muted);
+}
+
+.timeSel {
+  appearance: none;
+  padding: 0.34rem 0.5rem;
+  border-radius: 9px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:focus { outline: none; border-color: var(--color-primary); }
+}
+
+.colon { font-weight: 800; color: var(--color-text); }
+
+.meridiem {
+  display: inline-flex;
+  margin-inline-start: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.merBtn {
+  padding: 0.32rem 0.62rem;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
+}
+
+.merOn {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: var(--color-button-text);
+}
+
+/* ---- Footer ---- */
+.popFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.8rem;
+}
+
+.clearBtn {
+  padding: 0.4rem 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover { color: var(--color-danger, #ef4444); }
+}
+
+.doneBtn {
+  padding: 0.42rem 1.1rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: var(--color-button-text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.2s;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--color-primary) 28%, transparent);
+
+  &:hover { opacity: 0.94; }
+}

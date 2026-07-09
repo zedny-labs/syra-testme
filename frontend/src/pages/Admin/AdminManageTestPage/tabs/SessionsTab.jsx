@@ -1,6 +1,7 @@
 import React, { memo } from 'react'
 import useLanguage from '../../../../hooks/useLanguage'
 import styles from '../AdminManageTestPage.module.scss'
+import DateTimePicker from './DateTimePicker'
 
 function SessionsTab({
   sessions,
@@ -29,7 +30,13 @@ function SessionsTab({
               {learners.map((u) => <option key={u.id} value={u.id}>{u.user_id} - {u.name}</option>)}
             </select>
           </label>
-          <label>{t('admin_sessions_schedule_datetime')}<input type="datetime-local" disabled={isArchived} value={sessionForm.scheduled_at} onChange={(e) => setSessionForm((p) => ({ ...p, scheduled_at: e.target.value }))} /></label>
+          <label>{t('admin_sessions_schedule_datetime')}
+            <DateTimePicker
+              value={sessionForm.scheduled_at}
+              disabled={isArchived}
+              onChange={(val) => setSessionForm((p) => ({ ...p, scheduled_at: val }))}
+            />
+          </label>
         </div>
         <div className={styles.row}>
           <label>{t('admin_sessions_access_mode')}
