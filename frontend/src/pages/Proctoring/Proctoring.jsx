@@ -236,6 +236,10 @@ export default function Proctoring() {
   const [sections, setSections] = useState([])
   const [finishedSections, setFinishedSections] = useState([])
   const [activeSectionId, setActiveSectionId] = useState(null) // null => show hub
+  // Latches true the first time the learner actually enters exam content. Proctoring
+  // (camera, screen share, WS, detectors) stays OFF until this flips, so the section
+  // picker is never proctored; once on, it stays on for the rest of the attempt.
+  const [proctoringStarted, setProctoringStarted] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState({})
   const [timeLeft, setTimeLeft] = useState(null)
@@ -461,7 +465,8 @@ export default function Proctoring() {
   }, [attemptId, activeSectionId, flush, t])
 
   const journeyRequirements = getJourneyRequirements(proctorCfg)
-  const proctoringEnabled = Boolean(
+  // Whether the exam is configured for any proctoring at all.
+  const proctoringConfigured = Boolean(
     proctorCfg.tab_switch_detect
     || proctorCfg.fullscreen_enforce
     || proctorCfg.face_detection
@@ -476,8 +481,22 @@ export default function Proctoring() {
     || journeyRequirements.identityRequired
     || (Array.isArray(proctorCfg.alert_rules) && proctorCfg.alert_rules.length > 0)
   )
+  // Proctoring only becomes *active* once the learner has entered exam content
+  // (see proctoringStarted). This gates the overlay mount, every detection effect,
+  // and the screen-share gate, so the section picker stays unproctored.
+  const proctoringEnabled = proctoringConfigured && proctoringStarted
 
-  const screenShareRequired = Boolean(proctorCfg.screen_capture) && !screenShareGranted
+  // Latch proctoring ON the first time the learner is in real exam content:
+  //  - multi-section exams: when a section is entered (activeSectionId set)
+  //  - flat/single-section exams: as soon as loading finishes (no picker to gate on)
+  useEffect(() => {
+    if (proctoringStarted) return
+    if (activeSectionId != null) { setProctoringStarted(true); return }
+    if (!loading && !hubEnabled) setProctoringStarted(true)
+  }, [proctoringStarted, activeSectionId, loading, hubEnabled])
+
+  const screenShareRequired =
+    proctoringStarted && Boolean(proctorCfg.screen_capture) && !screenShareGranted
   const requiredRecordingSources = React.useMemo(() => {
     const sources = []
     if (journeyRequirements.cameraRequired) sources.push('camera')
@@ -1928,30 +1947,35 @@ export default function Proctoring() {
     )
     return (
       <div className={styles.page}>
-        <div className={styles.examPane}>
+        <div
+          className={styles.pickerBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-label={exam?.title || t('proctor_test')}
+        >
           <motion.div
-            className={`${styles.examHeader} glass`}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+            className={`${styles.pickerModal} glass`}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
           >
-            <h2 className={styles.examTitle}>{exam?.title || t('proctor_test')}</h2>
-            <div className={styles.headerMeta}>
-              <span className={proctoringEnabled && proctorStatus === 'connected' ? styles.badgeConnected : styles.badgeDisconnected}>
-                {t('proctor_proctoring')}: {proctoringEnabled ? proctorStatus : t('proctor_off')}
-              </span>
-              <div className={`${styles.timer} glass ${timeLeft !== null && timeLeft <= 300 ? styles.timerDanger : ''}`}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                {formatTime(timeLeft)}
+            <div className={styles.pickerHeader}>
+              <h2 className={styles.examTitle}>{exam?.title || t('proctor_test')}</h2>
+              <div className={styles.headerMeta}>
+                <span className={proctoringEnabled && proctorStatus === 'connected' ? styles.badgeConnected : styles.badgeDisconnected}>
+                  {t('proctor_proctoring')}: {proctoringEnabled ? proctorStatus : t('proctor_off')}
+                </span>
+                <div className={`${styles.timer} glass ${timeLeft !== null && timeLeft <= 300 ? styles.timerDanger : ''}`}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {formatTime(timeLeft)}
+                </div>
               </div>
             </div>
-          </motion.div>
 
-          {submitError && <div className={styles.warningBanner}>{submitError}</div>}
+            {submitError && <div className={styles.warningBanner}>{submitError}</div>}
 
-          <div className={styles.questionCard + ' glass'}>
             {hub.map((section, i) => {
               const status = sectionStatus(hub, i, { finished: finishedSections, answers, sequential })
               const count = (section.questions || []).length
@@ -2013,7 +2037,7 @@ export default function Proctoring() {
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
         {proctorPane}
         {toastNode}
