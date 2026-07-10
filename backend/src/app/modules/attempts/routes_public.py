@@ -10,7 +10,9 @@ from uuid import uuid4
 import cv2
 import numpy as np
 import io
-from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -1764,50 +1766,120 @@ async def verify_identity(
     return _build_attempt_read(attempt, db=db)
 
 
-def _generate_certificate(attempt: Attempt) -> bytes:
-    """Generate a simple PDF certificate and return bytes."""
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-
+def _certificate_data(attempt: Attempt) -> dict:
+    """Flatten the exam certificate config + attempt into the fields a template draws."""
     exam = attempt.exam
     user = attempt.user
     cfg = exam_certificate(exam) or {}
+    date = attempt.submitted_at or datetime.now(timezone.utc)
+    return {
+        "title": cfg.get("title") or "Certificate of Completion",
+        "subtitle": cfg.get("subtitle") or "",
+        "description": cfg.get("description") or "",
+        "issuer": cfg.get("issuer_name") or cfg.get("issuer") or "SYRA LMS",
+        "signer": cfg.get("signer_name") or cfg.get("signer") or "Authorized Signatory",
+        "name": user.name if user else "Learner",
+        "exam": exam.title if exam else "Test",
+        "score": f"{attempt.score:.0f}%" if attempt.score is not None else "N/A",
+        "date": date.strftime("%B %d, %Y"),
+        "template": (cfg.get("template") or "Classic"),
+        "orientation": (cfg.get("orientation") or "landscape"),
+    }
 
-    title = cfg.get("title") or "Certificate of Completion"
-    subtitle = cfg.get("subtitle") or ""
-    issuer = cfg.get("issuer_name") or cfg.get("issuer") or "SYRA LMS"
-    signer = cfg.get("signer_name") or cfg.get("signer") or "Authorized Signatory"
 
-    c.setFont("Helvetica-Bold", 24)
-    c.drawCentredString(width / 2, height - 120, title)
-    c.setFont("Helvetica", 14)
-    c.drawCentredString(width / 2, height - 150, subtitle)
+def _draw_wrapped_centered(c, text, cx, y, font, size, max_width, color=None, leading=None) -> float:
+    """Draw word-wrapped, centred text; return the y below the last line."""
+    if not text:
+        return y
+    if color is not None:
+        c.setFillColor(color)
+    c.setFont(font, size)
+    step = leading or size * 1.35
+    for line in simpleSplit(str(text), font, size, max_width):
+        c.drawCentredString(cx, y, line)
+        y -= step
+    return y
 
-    c.setFont("Helvetica", 12)
-    c.drawCentredString(width / 2, height - 220, "This certifies that")
-    c.setFont("Helvetica-Bold", 18)
-    c.drawCentredString(width / 2, height - 250, user.name if user else "Learner")
 
-    c.setFont("Helvetica", 12)
-    c.drawCentredString(width / 2, height - 290, "has successfully completed")
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width / 2, height - 320, exam.title if exam else "Test")
+def _cert_classic(c, W, H, d) -> None:
+    navy = colors.HexColor("#1e2a4a")
+    gold = colors.HexColor("#b0893f")
+    grey = colors.HexColor("#4a4a4a")
+    cx, m = W / 2, 0.055 * W
+    c.setStrokeColor(navy); c.setLineWidth(3); c.rect(m, m, W - 2 * m, H - 2 * m)
+    c.setStrokeColor(gold); c.setLineWidth(1); c.rect(m + 7, m + 7, W - 2 * m - 14, H - 2 * m - 14)
+    c.setFillColor(navy); c.setFont("Times-Bold", 30); c.drawCentredString(cx, H * 0.80, d["title"])
+    if d["subtitle"]:
+        c.setFillColor(gold); c.setFont("Times-Italic", 14); c.drawCentredString(cx, H * 0.755, d["subtitle"])
+    c.setFillColor(grey); c.setFont("Times-Roman", 12); c.drawCentredString(cx, H * 0.655, "This is to certify that")
+    c.setFillColor(navy); c.setFont("Times-BoldItalic", 26); c.drawCentredString(cx, H * 0.595, d["name"])
+    c.setStrokeColor(gold); c.setLineWidth(1); c.line(cx - 0.22 * W, H * 0.575, cx + 0.22 * W, H * 0.575)
+    c.setFillColor(grey); c.setFont("Times-Roman", 12); c.drawCentredString(cx, H * 0.515, "has successfully completed")
+    c.setFillColor(navy); c.setFont("Times-Bold", 17); c.drawCentredString(cx, H * 0.470, d["exam"])
+    y = _draw_wrapped_centered(c, d["description"], cx, H * 0.415, "Times-Italic", 11, 0.62 * W, colors.HexColor("#666666"))
+    c.setFillColor(grey); c.setFont("Times-Roman", 11)
+    c.drawCentredString(cx, min(y - 6, H * 0.32), f"Score: {d['score']}     -     {d['date']}")
+    c.setStrokeColor(navy); c.setLineWidth(1); c.line(cx - 0.16 * W, H * 0.19, cx + 0.16 * W, H * 0.19)
+    c.setFillColor(navy); c.setFont("Times-Bold", 12); c.drawCentredString(cx, H * 0.165, d["signer"])
+    c.setFillColor(colors.HexColor("#666666")); c.setFont("Times-Roman", 10); c.drawCentredString(cx, H * 0.14, d["issuer"])
 
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(width / 2, height - 360, f"Score: {attempt.score if attempt.score is not None else 'N/A'}")
-    c.drawCentredString(
-        width / 2,
-        height - 380,
-        f"Date: {attempt.submitted_at.strftime('%Y-%m-%d') if attempt.submitted_at else datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
-    )
 
-    c.line(width / 2 - 120, height - 450, width / 2 + 120, height - 450)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(width / 2, height - 470, signer)
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(width / 2, height - 490, issuer)
+def _cert_modern(c, W, H, d) -> None:
+    accent = colors.HexColor("#0e7c66")
+    dark = colors.HexColor("#1f2937")
+    muted = colors.HexColor("#6b7280")
+    cx = W / 2
+    band = H * 0.17
+    c.setFillColor(accent); c.rect(0, H - band, W, band, fill=1, stroke=0)
+    c.setFillColor(colors.white); c.setFont("Helvetica-Bold", 26); c.drawCentredString(cx, H - band * 0.63, d["title"])
+    if d["subtitle"]:
+        c.setFillColor(accent); c.setFont("Helvetica", 13); c.drawCentredString(cx, H * 0.745, d["subtitle"])
+    c.setFillColor(muted); c.setFont("Helvetica", 11); c.drawCentredString(cx, H * 0.645, "PRESENTED TO")
+    c.setFillColor(dark); c.setFont("Helvetica-Bold", 26); c.drawCentredString(cx, H * 0.585, d["name"])
+    c.setFillColor(muted); c.setFont("Helvetica", 11); c.drawCentredString(cx, H * 0.505, "for successfully completing")
+    c.setFillColor(accent); c.setFont("Helvetica-Bold", 16); c.drawCentredString(cx, H * 0.460, d["exam"])
+    y = _draw_wrapped_centered(c, d["description"], cx, H * 0.405, "Helvetica", 11, 0.64 * W, muted)
+    c.setFillColor(dark); c.setFont("Helvetica", 11)
+    c.drawCentredString(cx, min(y - 6, H * 0.30), f"Score {d['score']}     |     {d['date']}")
+    c.setStrokeColor(accent); c.setLineWidth(2); c.line(cx - 0.15 * W, H * 0.18, cx + 0.15 * W, H * 0.18)
+    c.setFillColor(dark); c.setFont("Helvetica-Bold", 12); c.drawCentredString(cx, H * 0.155, d["signer"])
+    c.setFillColor(muted); c.setFont("Helvetica", 10); c.drawCentredString(cx, H * 0.13, d["issuer"])
 
+
+def _cert_simple(c, W, H, d) -> None:
+    dark = colors.HexColor("#111827")
+    muted = colors.HexColor("#6b7280")
+    hair = colors.HexColor("#d1d5db")
+    cx, m = W / 2, 0.05 * W
+    c.setStrokeColor(hair); c.setLineWidth(0.75); c.rect(m, m, W - 2 * m, H - 2 * m)
+    c.setFillColor(dark); c.setFont("Helvetica-Bold", 24); c.drawCentredString(cx, H * 0.78, d["title"])
+    if d["subtitle"]:
+        c.setFillColor(muted); c.setFont("Helvetica", 12); c.drawCentredString(cx, H * 0.735, d["subtitle"])
+    c.setFillColor(muted); c.setFont("Helvetica", 11); c.drawCentredString(cx, H * 0.635, "This certifies that")
+    c.setFillColor(dark); c.setFont("Helvetica-Bold", 22); c.drawCentredString(cx, H * 0.575, d["name"])
+    c.setFillColor(muted); c.setFont("Helvetica", 11); c.drawCentredString(cx, H * 0.495, "has completed")
+    c.setFillColor(dark); c.setFont("Helvetica-Bold", 15); c.drawCentredString(cx, H * 0.450, d["exam"])
+    y = _draw_wrapped_centered(c, d["description"], cx, H * 0.395, "Helvetica", 10, 0.66 * W, muted)
+    c.setFillColor(muted); c.setFont("Helvetica", 10)
+    c.drawCentredString(cx, min(y - 6, H * 0.29), f"{d['score']}     -     {d['date']}")
+    c.setStrokeColor(hair); c.setLineWidth(0.75); c.line(cx - 0.14 * W, H * 0.18, cx + 0.14 * W, H * 0.18)
+    c.setFillColor(dark); c.setFont("Helvetica-Bold", 11); c.drawCentredString(cx, H * 0.155, d["signer"])
+    c.setFillColor(muted); c.setFont("Helvetica", 9); c.drawCentredString(cx, H * 0.13, d["issuer"])
+
+
+_CERT_TEMPLATES = {"classic": _cert_classic, "modern": _cert_modern, "simple": _cert_simple}
+
+
+def _generate_certificate(attempt: Attempt) -> bytes:
+    """Render the attempt's certificate as a PDF, honouring the exam's configured
+    template (Classic/Modern/Simple), orientation (landscape/portrait) and description."""
+    d = _certificate_data(attempt)
+    pagesize = landscape(A4) if str(d["orientation"]).strip().lower() == "landscape" else A4
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=pagesize)
+    width, height = pagesize
+    renderer = _CERT_TEMPLATES.get(str(d["template"]).strip().lower(), _cert_classic)
+    renderer(c, width, height, d)
     c.showPage()
     c.save()
     buffer.seek(0)
