@@ -71,13 +71,18 @@ jobs:
             build_sha = sys.argv[1]
             repo_root = Path("/opt/syra-testme-dev")
             targets = (repo_root / ".env", repo_root / "backend" / ".env.docker")
+            vimeo_token = json.loads(r'''${{ toJSON(secrets.SYRA_VIMEO_ACCESS_TOKEN) }}''')
             updates = {
                 "JWT_SECRET": json.loads(r'''${{ toJSON(secrets.SYRA_JWT_SECRET) }}'''),
                 "BREVO_API_KEY": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_API_KEY) }}'''),
                 "BREVO_SENDER_EMAIL": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_EMAIL) }}'''),
                 "BREVO_SENDER_NAME": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_NAME) }}'''),
                 "BUILD_SHA": build_sha,
+                "VIMEO_ACCESS_TOKEN": vimeo_token,
             }
+            # Only switch proctoring-video storage to Vimeo when a token is actually configured.
+            if vimeo_token:
+                updates["PROCTORING_VIDEO_STORAGE_PROVIDER"] = "vimeo"
             def upsert(path, values):
                 lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
                 pending = {k: v for k, v in values.items() if v}
