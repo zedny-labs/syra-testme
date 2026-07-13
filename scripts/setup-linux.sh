@@ -520,6 +520,8 @@ existing_brevo_sandbox="$(read_env_value "$BACKEND_ENV" "BREVO_SANDBOX")"
 existing_media_storage_provider="$(read_env_value "$BACKEND_ENV" "MEDIA_STORAGE_PROVIDER")"
 existing_video_storage_provider="$(read_env_value "$BACKEND_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER")"
 existing_cloudflare_media_api_base_url="$(read_env_value "$BACKEND_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL")"
+existing_vimeo_access_token="$(read_env_value "$BACKEND_ENV" "VIMEO_ACCESS_TOKEN")"
+existing_root_vimeo_access_token="$(read_env_value "$ROOT_ENV" "VIMEO_ACCESS_TOKEN")"
 existing_workers="$(read_env_value "$BACKEND_ENV" "WORKERS")"
 existing_nginx_client_max_body_size="$(read_env_value "$FRONTEND_ENV" "NGINX_CLIENT_MAX_BODY_SIZE")"
 existing_backend_local_database_url="$(read_env_value "$BACKEND_LOCAL_ENV" "DATABASE_URL")"
@@ -552,6 +554,7 @@ MEDIA_STORAGE_PROVIDER="${SYRA_MEDIA_STORAGE_PROVIDER:-$(first_non_empty "$exist
 NGINX_CLIENT_MAX_BODY_SIZE="${SYRA_NGINX_CLIENT_MAX_BODY_SIZE:-$(first_non_empty "$existing_nginx_client_max_body_size" "$existing_root_nginx_client_max_body_size" "512m")}"
 CLOUDFLARE_MEDIA_API_BASE_URL="${SYRA_CLOUDFLARE_MEDIA_API_BASE_URL:-$(first_non_empty "$existing_cloudflare_media_api_base_url" "$existing_root_cloudflare_media_api_base_url" "")}"
 PROCTORING_VIDEO_STORAGE_PROVIDER="${SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER:-$(first_non_empty "$existing_video_storage_provider" "$existing_root_video_storage_provider" "")}"
+VIMEO_ACCESS_TOKEN="${SYRA_VIMEO_ACCESS_TOKEN:-$(first_non_empty "$existing_vimeo_access_token" "$existing_root_vimeo_access_token" "")}"
 
 existing_worker_value="$(first_non_empty "$existing_workers" "$existing_root_workers" "")"
 default_workers="1"
@@ -682,8 +685,17 @@ case "$PROCTORING_VIDEO_STORAGE_PROVIDER" in
   supabase)
     log "Using Supabase proctoring video storage."
     ;;
+  vimeo)
+    if [[ -z "$VIMEO_ACCESS_TOKEN" ]]; then
+      log "WARNING: Vimeo storage was selected without a Vimeo access token."
+      log "Falling back to supabase proctoring video storage."
+      PROCTORING_VIDEO_STORAGE_PROVIDER="supabase"
+    else
+      log "Using Vimeo proctoring video storage."
+    fi
+    ;;
   *)
-    die "Unsupported SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER: ${PROCTORING_VIDEO_STORAGE_PROVIDER}. Use 'cloudflare' or 'supabase'."
+    die "Unsupported SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER: ${PROCTORING_VIDEO_STORAGE_PROVIDER}. Use 'cloudflare', 'supabase', or 'vimeo'."
     ;;
 esac
 
@@ -833,6 +845,9 @@ set_env_value "$BACKEND_ENV" "AUTO_APPLY_MIGRATIONS" "$AUTO_APPLY_MIGRATIONS_VAL
 set_env_value "$BACKEND_ENV" "MEDIA_STORAGE_PROVIDER" "$MEDIA_STORAGE_PROVIDER"
 set_env_value "$BACKEND_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER" "$PROCTORING_VIDEO_STORAGE_PROVIDER"
 set_env_value "$BACKEND_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL" "$CLOUDFLARE_MEDIA_API_BASE_URL"
+if [[ -n "$VIMEO_ACCESS_TOKEN" ]]; then
+  set_env_value "$BACKEND_ENV" "VIMEO_ACCESS_TOKEN" "$VIMEO_ACCESS_TOKEN"
+fi
 set_env_value "$BACKEND_ENV" "CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS" "$CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS"
 set_env_value "$BACKEND_ENV" "PRECHECK_ALLOW_TEST_BYPASS" "$PRECHECK_ALLOW_TEST_BYPASS"
 set_env_value "$BACKEND_ENV" "WEB_REPORT_SCHEDULER_ENABLED" "$WEB_REPORT_SCHEDULER_ENABLED"
