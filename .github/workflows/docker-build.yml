@@ -130,8 +130,8 @@ jobs:
             echo ">>> Running deploy script..."
             export SYRA_SEED_DEMO_DATA=0
             export SYRA_SEED_LOGIN_USERS=1
-            export SYRA_FRONTEND_URL="https://testme.zedny.ai"
-            export SYRA_BACKEND_URL="https://testme.zedny.ai/api"
+            export SYRA_FRONTEND_URL="https://varexam.zedny.ai"
+            export SYRA_BACKEND_URL="https://varexam.zedny.ai/api"
             export SYRA_DB_MIGRATION_TIMEOUT_SECONDS=240
             export SYRA_BACKEND_HEALTH_TIMEOUT_SECONDS=15
             export SYRA_FRONTEND_HEALTH_TIMEOUT_SECONDS=10
