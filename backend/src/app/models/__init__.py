@@ -88,7 +88,11 @@ class User(Base):
     token_invalid_before: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
+    creator = relationship("User", remote_side="User.id", backref="created_users")
     courses = relationship("Course", back_populates="creator")
     attempts = relationship("Attempt", back_populates="user")
     question_pools = relationship("QuestionPool", back_populates="creator")

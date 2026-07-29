@@ -84,7 +84,8 @@ def test_admin_created_user_can_log_in_with_saved_credentials() -> None:
         admin = _create_admin(db)
         password = "Passw0rd!"
 
-        learner = UserService(UserRepository(db)).create_user(
+        service = UserService(UserRepository(db))
+        learner = service.create_user(
             body=UserCreate(
                 email="New.Login@Example.COM",
                 name="New Login",
@@ -92,13 +93,21 @@ def test_admin_created_user_can_log_in_with_saved_credentials() -> None:
                 role=RoleEnum.LEARNER,
                 is_active=True,
                 password=password,
-            )
+            ),
+            current=admin,
         )
 
         login_user = UserRepository(db).get_user_by_email("new.login@example.com")
 
+        assert learner.created_by_id == admin.id
         assert login_user.id == learner.id
         assert verify_password(password, login_user.hashed_password)
+
+        page = PaginationParams(page=1, page_size=50, search=learner.email, sort="created_at", order="desc")
+        listed = service.list_users(pagination=page, role="LEARNER", is_active=None, actor_id=admin.id)
+        listed_ids = {str(item.id) for item in listed["items"]}
+        assert str(learner.id) in listed_ids
+        assert service.get_user(str(learner.id), actor_id=admin.id).id == learner.id
     finally:
         db.close()
 

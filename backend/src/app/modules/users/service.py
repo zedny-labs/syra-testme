@@ -78,6 +78,7 @@ class UserService:
                 query = query.where(
                     or_(
                         User.id == actor_id,
+                        User.created_by_id == actor_id,
                         User.id.in_(
                             select(Attempt.user_id).where(Attempt.exam_id.in_(actor_exam_ids))
                         ),
@@ -156,6 +157,7 @@ class UserService:
                     )
                 )
                 .where(User.role == RoleEnum.LEARNER)
+                .where(User.created_by_id == current.id)
             )
             if is_active is not None:
                 query = query.where(User.is_active == is_active)
@@ -173,7 +175,7 @@ class UserService:
 
         return _learners_cache.get_or_compute(cache_key, _load_learners)
 
-    def create_user(self, *, body: UserCreate) -> User:
+    def create_user(self, *, body: UserCreate, current: User | None = None) -> User:
         payload = self._normalize_user_payload(body.model_dump(exclude={"password"}), partial=False)
         self._ensure_unique_email(payload["email"])
         self._ensure_unique_user_id(payload["user_id"])
@@ -185,6 +187,7 @@ class UserService:
             role=payload["role"],
             is_active=payload["is_active"],
             hashed_password=hash_password(body.password),
+            created_by_id=current.id if current is not None else None,
             created_at=now,
             updated_at=now,
         )
@@ -202,8 +205,7 @@ class UserService:
         user = self.repository.get_user(parse_uuid_param(user_id, detail=_t("user_not_found")))
         if not user:
             raise HTTPException(status_code=404, detail=_t("user_not_found"))
-        if actor_id and user.id != actor_id:
-            # Verify this user has attempted an exam created by the actor
+        if actor_id and user.id != actor_id and user.created_by_id != actor_id:
             has_connection = self.repository.db.scalar(
                 select(func.count(Attempt.id)).where(
                     Attempt.user_id == user.id,
