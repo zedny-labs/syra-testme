@@ -112,6 +112,43 @@ def test_admin_created_user_can_log_in_with_saved_credentials() -> None:
         db.close()
 
 
+def test_scheduling_learner_picker_includes_connected_learners() -> None:
+    db = _new_session()
+    try:
+        admin = _create_admin(db)
+        learner = _create_learner(db)
+        exam = _create_exam(db, owner=admin)
+        db.add(
+            Schedule(
+                exam_id=exam.id,
+                user_id=learner.id,
+                scheduled_at=_now() + timedelta(hours=1),
+                access_mode=AccessMode.OPEN,
+            )
+        )
+        db.commit()
+
+        import app.modules.users.service as users_service
+
+        old_loader = users_service.load_permission_rows
+        users_service.load_permission_rows = lambda _db: [
+            {"feature": "Assign Schedules", "admin": True},
+            {"feature": "Manage Users", "admin": True},
+        ]
+        try:
+            picker_rows = UserService(UserRepository(db)).list_learners_for_scheduling(
+                current=admin,
+                search=None,
+                is_active=True,
+            )
+        finally:
+            users_service.load_permission_rows = old_loader
+
+        assert any(row.id == learner.id for row in picker_rows)
+    finally:
+        db.close()
+
+
 def _create_exam(db: Session, *, owner: User) -> Exam:
     now = _now()
     course = Course(

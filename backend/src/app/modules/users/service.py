@@ -142,6 +142,7 @@ class UserService:
         )
 
         def _load_learners() -> list[UserRead]:
+            actor_exam_ids = select(Exam.id).where(Exam.created_by_id == current.id)
             query = (
                 select(User)
                 .options(
@@ -157,7 +158,17 @@ class UserService:
                     )
                 )
                 .where(User.role == RoleEnum.LEARNER)
-                .where(User.created_by_id == current.id)
+                .where(
+                    or_(
+                        User.created_by_id == current.id,
+                        User.id.in_(
+                            select(Attempt.user_id).where(Attempt.exam_id.in_(actor_exam_ids))
+                        ),
+                        User.id.in_(
+                            select(Schedule.user_id).where(Schedule.exam_id.in_(actor_exam_ids))
+                        ),
+                    )
+                )
             )
             if is_active is not None:
                 query = query.where(User.is_active == is_active)
