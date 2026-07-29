@@ -25,10 +25,14 @@ from app.models import (
     Schedule,
     User,
 )
+from app.core.security import verify_password
 from app.modules.tests.enums import TestStatus
 from app.modules.tests.repository import TestListRow as AdminTestListRow, TestRepository as AdminTestRepository
 from app.modules.tests.schemas import TestUpdateDTO as AdminTestUpdateDTO
 from app.modules.tests.service import ServiceActor, TestService as AdminTestService
+from app.modules.users.repository import UserRepository
+from app.modules.users.service import UserService
+from app.schemas import UserCreate
 from app.services import exam_compat_service, schedule_service
 from app.services.normalized_relations import set_exam_certificate
 from app.utils.pagination import PaginationParams
@@ -72,6 +76,31 @@ def _create_learner(db: Session) -> User:
     db.add(learner)
     db.flush()
     return learner
+
+
+def test_admin_created_user_can_log_in_with_saved_credentials() -> None:
+    db = _new_session()
+    try:
+        admin = _create_admin(db)
+        password = "Passw0rd!"
+
+        learner = UserService(UserRepository(db)).create_user(
+            body=UserCreate(
+                email="New.Login@Example.COM",
+                name="New Login",
+                user_id=f"newlogin-{uuid.uuid4().hex[:6]}",
+                role=RoleEnum.LEARNER,
+                is_active=True,
+                password=password,
+            )
+        )
+
+        login_user = UserRepository(db).get_user_by_email("new.login@example.com")
+
+        assert login_user.id == learner.id
+        assert verify_password(password, login_user.hashed_password)
+    finally:
+        db.close()
 
 
 def _create_exam(db: Session, *, owner: User) -> Exam:

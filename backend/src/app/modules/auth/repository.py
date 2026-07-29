@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...models import SystemSettings, User
@@ -20,10 +20,16 @@ class AuthRepository:
         return bool(setting and str(setting.value).lower() in {"1", "true", "yes"})
 
     def get_user_by_email(self, email: str) -> User | None:
-        return self.db.scalar(select(User).where(User.email == email))
+        return self.db.scalar(
+            select(User).where(func.lower(User.email) == email.strip().lower())
+        )
 
     def get_user_by_email_or_user_id(self, *, email: str, user_id: str) -> User | None:
-        return self.db.scalar(select(User).where((User.email == email) | (User.user_id == user_id)))
+        return self.db.scalar(
+            select(User).where(
+                (func.lower(User.email) == email.strip().lower()) | (User.user_id == user_id)
+            )
+        )
 
     def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
         return self.db.get(User, user_id)

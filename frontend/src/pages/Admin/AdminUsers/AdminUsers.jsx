@@ -10,7 +10,6 @@ import styles from './AdminUsers.module.scss'
 const EMPTY_FORM = { user_id: '', name: '', email: '', password: '', role: 'LEARNER', is_active: true }
 const ROLES = ['ADMIN', 'INSTRUCTOR', 'LEARNER']
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const TEXT_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const SORT_OPTIONS = [
   { value: 'name_asc', labelKey: 'admin_users_sort_name_az' },
   { value: 'name_desc', labelKey: 'admin_users_sort_name_za' },
@@ -45,52 +44,6 @@ function mapSortOption(sortOption) {
   if (sortOption === 'role_asc') return { sort_by: 'role', sort_dir: 'asc' }
   if (sortOption === 'created_asc') return { sort_by: 'created_at', sort_dir: 'asc' }
   return { sort_by: 'created_at', sort_dir: 'desc' }
-}
-
-function matchesUserFilters(listedUser, { search, roleFilter, statusFilter }) {
-  const searchValue = search.trim().toLowerCase()
-  if (searchValue) {
-    const haystacks = [listedUser.name, listedUser.email, listedUser.user_id]
-      .map((value) => String(value || '').toLowerCase())
-    if (!haystacks.some((value) => value.includes(searchValue))) return false
-  }
-  if (roleFilter !== 'All' && listedUser.role !== roleFilter) return false
-  if (statusFilter === 'Active' && listedUser.is_active === false) return false
-  if (statusFilter === 'Inactive' && listedUser.is_active !== false) return false
-  return true
-}
-
-function sortUsers(listedUsers, sortOption) {
-  const compareDate = (left, right) => {
-    const leftValue = Date.parse(left || '')
-    const rightValue = Date.parse(right || '')
-    return (Number.isNaN(leftValue) ? 0 : leftValue) - (Number.isNaN(rightValue) ? 0 : rightValue)
-  }
-
-  return [...listedUsers].sort((left, right) => {
-    if (sortOption === 'name_asc') {
-      return TEXT_COLLATOR.compare(left.name || '', right.name || '')
-        || TEXT_COLLATOR.compare(left.email || '', right.email || '')
-    }
-    if (sortOption === 'name_desc') {
-      return TEXT_COLLATOR.compare(right.name || '', left.name || '')
-        || TEXT_COLLATOR.compare(right.email || '', left.email || '')
-    }
-    if (sortOption === 'email_asc') {
-      return TEXT_COLLATOR.compare(left.email || '', right.email || '')
-        || TEXT_COLLATOR.compare(left.name || '', right.name || '')
-    }
-    if (sortOption === 'role_asc') {
-      return TEXT_COLLATOR.compare(left.role || '', right.role || '')
-        || TEXT_COLLATOR.compare(left.name || '', right.name || '')
-    }
-    if (sortOption === 'created_asc') {
-      return compareDate(left.created_at, right.created_at)
-        || TEXT_COLLATOR.compare(left.email || '', right.email || '')
-    }
-    return compareDate(right.created_at, left.created_at)
-      || TEXT_COLLATOR.compare(right.email || '', left.email || '')
-  })
 }
 
 export default function AdminUsers() {
@@ -295,7 +248,6 @@ export default function AdminUsers() {
     setNotice('')
     setFieldErrors({})
     try {
-      let createdUser = null
       const payload = {
         ...form,
         user_id: form.user_id.trim(),
@@ -303,8 +255,7 @@ export default function AdminUsers() {
         email: form.email.trim(),
       }
       if (modal === 'create') {
-        const { data } = await adminApi.createUser(payload)
-        createdUser = data
+        await adminApi.createUser(payload)
         setNotice(t('admin_users_user_created'))
       } else {
         await adminApi.updateUser(modal.id, {
@@ -316,22 +267,6 @@ export default function AdminUsers() {
         setNotice(t('admin_users_user_updated'))
       }
       setModal(null)
-      if (
-        modal === 'create'
-        && createdUser
-        && page === 1
-        && sortBy === 'created_desc'
-        && matchesUserFilters(createdUser, { search, roleFilter, statusFilter })
-      ) {
-        setUsers((current) => (
-          sortUsers(
-            [createdUser, ...current.filter((listedUser) => listedUser.id !== createdUser.id)],
-            sortBy,
-          ).slice(0, pageSize)
-        ))
-        setTotalUsers((current) => current + 1)
-        return
-      }
       if (page !== 1) {
         setPage(1)
       } else {

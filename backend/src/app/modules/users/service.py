@@ -324,10 +324,13 @@ class UserService:
             raise HTTPException(status_code=422, detail=_t("field_required", field_name=field_name))
         return text
 
+    def _clean_email(self, value: str | None) -> str:
+        return self._clean_required_text(value, "Email").lower()
+
     def _normalize_user_payload(self, payload: dict, *, partial: bool) -> dict:
         cleaned: dict = {}
         if not partial or "email" in payload:
-            cleaned["email"] = self._clean_required_text(payload.get("email"), "Email")
+            cleaned["email"] = self._clean_email(payload.get("email"))
         if not partial or "name" in payload:
             cleaned["name"] = self._clean_required_text(payload.get("name"), "Name")
         if not partial or "user_id" in payload:

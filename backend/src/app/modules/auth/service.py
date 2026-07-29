@@ -39,7 +39,7 @@ class AuthService:
         if self.repository.any_user_exists():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_t("admin_already_set_up"))
         user = User(
-            email=body.email,
+            email=str(body.email).strip().lower(),
             name=sanitize_plain_text(body.name) or body.name,
             user_id=body.user_id,
             hashed_password=hash_password(body.password),
@@ -64,7 +64,7 @@ class AuthService:
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_t("account_already_exists"))
         user = User(
-            email=body.email,
+            email=str(body.email).strip().lower(),
             name=sanitize_plain_text(body.name) or body.name,
             user_id=body.user_id,
             hashed_password=hash_password(body.password),
