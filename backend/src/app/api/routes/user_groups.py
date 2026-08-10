@@ -28,25 +28,28 @@ def _clean_optional_text(value: str | None) -> str | None:
     return text or None
 
 
-def _get_group_or_404(db: Session, group_id: str) -> UserGroup:
+def _get_group_or_404(db: Session, group_id: str, current) -> UserGroup:
     group_pk = parse_uuid_param(group_id, detail=_t("not_found"))
     group = db.get(UserGroup, group_pk)
-    if not group:
+    if not group or group.created_by_id != current.id:
         raise HTTPException(status_code=404, detail=_t("not_found"))
     return group
 
 
-def _ensure_unique_group_name(db: Session, name: str, existing_group_id=None):
+def _ensure_unique_group_name(db: Session, name: str, owner_id, existing_group_id=None):
     from sqlalchemy import func
     normalized = name.strip().lower()
     existing = db.scalar(
-        select(UserGroup).where(func.lower(UserGroup.name) == normalized)
+        select(UserGroup).where(
+            UserGroup.created_by_id == owner_id,
+            func.lower(UserGroup.name) == normalized,
+        )
     )
     if existing and getattr(existing, "id", None) != existing_group_id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_t("group_name_exists"))
 
 
-def _normalize_member_ids(db: Session, raw_member_ids: list[str] | None) -> list:
+def _normalize_member_ids(db: Session, raw_member_ids: list[str] | None, current) -> list:
     member_ids = []
     for raw_member_id in raw_member_ids or []:
         user_pk = parse_uuid_param(str(raw_member_id), detail=_t("user_not_found"))
@@ -58,17 +61,21 @@ def _normalize_member_ids(db: Session, raw_member_ids: list[str] | None) -> list
                 status_code=422,
                 detail=_t("only_learners_in_groups"),
             )
+        # Membership is an assignment action: only the owning admin may add
+        # their own learners. Reject non-owned learners with 404 (no leak).
+        if user.created_by_id != current.id:
+            raise HTTPException(status_code=404, detail=_t("user_not_found"))
         normalized_user_id = str(user.id)
         if normalized_user_id not in member_ids:
             member_ids.append(normalized_user_id)
     return member_ids
 
 
-def _normalize_group_payload(db: Session, body: UserGroupCreate) -> dict:
+def _normalize_group_payload(db: Session, body: UserGroupCreate, current) -> dict:
     return {
         "name": _clean_required_text(body.name, "Group name"),
         "description": _clean_optional_text(body.description),
-        "member_ids": _normalize_member_ids(db, body.member_ids),
+        "member_ids": _normalize_member_ids(db, body.member_ids, current),
     }
 
 
@@ -87,10 +94,10 @@ def _build_group_read(group: UserGroup) -> UserGroupRead:
 
 @router.post("/", response_model=UserGroupRead)
 def create_group(body: UserGroupCreate, db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Users", RoleEnum.ADMIN))):
-    payload = _normalize_group_payload(db, body)
-    _ensure_unique_group_name(db, payload["name"])
+    payload = _normalize_group_payload(db, body, current)
+    _ensure_unique_group_name(db, payload["name"], current.id)
     member_ids = payload.pop("member_ids", [])
-    group = UserGroup(**payload)
+    group = UserGroup(**payload, created_by_id=current.id)
     replace_user_group_members(group, member_ids, db=db)
     db.add(group)
     try:
@@ -104,20 +111,22 @@ def create_group(body: UserGroupCreate, db: Session = Depends(get_db_dep), curre
 
 @router.get("/", response_model=list[UserGroupRead])
 def list_groups(db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Users", RoleEnum.ADMIN))):
-    groups = db.scalars(select(UserGroup).order_by(UserGroup.created_at.desc())).all()
+    groups = db.scalars(
+        select(UserGroup).where(UserGroup.created_by_id == current.id).order_by(UserGroup.created_at.desc())
+    ).all()
     return [_build_group_read(group) for group in groups]
 
 
 @router.get("/{group_id}", response_model=UserGroupRead)
 def get_group(group_id: str, db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Users", RoleEnum.ADMIN))):
-    return _build_group_read(_get_group_or_404(db, group_id))
+    return _build_group_read(_get_group_or_404(db, group_id, current))
 
 
 @router.put("/{group_id}", response_model=UserGroupRead)
 def update_group(group_id: str, body: UserGroupCreate, db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Users", RoleEnum.ADMIN))):
-    group = _get_group_or_404(db, group_id)
-    payload = _normalize_group_payload(db, body)
-    _ensure_unique_group_name(db, payload["name"], existing_group_id=group.id)
+    group = _get_group_or_404(db, group_id, current)
+    payload = _normalize_group_payload(db, body, current)
+    _ensure_unique_group_name(db, payload["name"], current.id, existing_group_id=group.id)
     group.name = payload["name"]
     group.description = payload["description"]
     replace_user_group_members(group, payload["member_ids"], db=db)
@@ -129,7 +138,7 @@ def update_group(group_id: str, body: UserGroupCreate, db: Session = Depends(get
 
 @router.delete("/{group_id}", response_model=Message)
 def delete_group(group_id: str, db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Users", RoleEnum.ADMIN))):
-    group = _get_group_or_404(db, group_id)
+    group = _get_group_or_404(db, group_id, current)
     db.delete(group)
     db.commit()
     return Message(detail=_t("deleted"))
@@ -141,7 +150,7 @@ def list_group_members(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Users", RoleEnum.ADMIN)),
 ):
-    group = _get_group_or_404(db, group_id)
+    group = _get_group_or_404(db, group_id, current)
     member_ids = serialize_user_group_member_ids(group)
     if not member_ids:
         return []
@@ -158,7 +167,7 @@ def add_group_member(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Users", RoleEnum.ADMIN)),
 ):
-    group = _get_group_or_404(db, group_id)
+    group = _get_group_or_404(db, group_id, current)
     user_id = payload.get("user_id")
     if not user_id:
         raise HTTPException(status_code=422, detail=_t("user_id_required"))
@@ -171,6 +180,8 @@ def add_group_member(
             status_code=422,
             detail=_t("only_learners_in_groups"),
         )
+    if user.created_by_id != current.id:
+        raise HTTPException(status_code=404, detail=_t("user_not_found"))
     member_ids = serialize_user_group_member_ids(group)
     normalized_user_id = str(user.id)
     if normalized_user_id in member_ids:
@@ -193,7 +204,7 @@ def add_group_members_bulk(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Users", RoleEnum.ADMIN)),
 ):
-    group = _get_group_or_404(db, group_id)
+    group = _get_group_or_404(db, group_id, current)
     user_ids = payload.get("user_ids")
     if not user_ids or not isinstance(user_ids, list):
         raise HTTPException(status_code=422, detail=_t("user_ids_required"))
@@ -205,6 +216,8 @@ def add_group_members_bulk(
         if not user:
             continue
         if user.role != RoleEnum.LEARNER:
+            continue
+        if user.created_by_id != current.id:
             continue
         normalized_user_id = str(user.id)
         if normalized_user_id not in member_ids:
@@ -223,7 +236,7 @@ def remove_group_member(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Users", RoleEnum.ADMIN)),
 ):
-    group = _get_group_or_404(db, group_id)
+    group = _get_group_or_404(db, group_id, current)
     user_pk = parse_uuid_param(user_id, detail=_t("user_not_found"))
     member_ids = serialize_user_group_member_ids(group)
     normalized_user_id = str(user_pk)

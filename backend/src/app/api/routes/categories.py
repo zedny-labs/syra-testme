@@ -25,12 +25,23 @@ def _clean_optional_text(value: str | None) -> str | None:
     return cleaned or None
 
 
-def _ensure_unique_category_name(db: Session, name: str, existing_category_id=None):
+def _ensure_unique_category_name(db: Session, name: str, owner_id, existing_category_id=None):
     existing = db.scalar(
-        select(Category).where(func.lower(Category.name) == name.lower())
+        select(Category).where(
+            Category.created_by_id == owner_id,
+            func.lower(Category.name) == name.lower(),
+        )
     )
     if existing and getattr(existing, "id", None) != existing_category_id:
         raise HTTPException(status_code=409, detail=_t("category_exists"))
+
+
+def _get_owned_category_or_404(db: Session, category_id: str, current) -> Category:
+    category_pk = parse_uuid_param(category_id, detail=_t("not_found"))
+    cat = db.get(Category, category_pk)
+    if not cat or cat.created_by_id != current.id:
+        raise HTTPException(status_code=404, detail=_t("not_found"))
+    return cat
 
 
 def _normalize_category_payload(body: CategoryBase) -> dict:
@@ -49,8 +60,8 @@ def create_category(
     current=Depends(require_permission("Manage Categories", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
 ):
     payload = _normalize_category_payload(body)
-    _ensure_unique_category_name(db, payload["name"])
-    cat = Category(**payload)
+    _ensure_unique_category_name(db, payload["name"], current.id)
+    cat = Category(**payload, created_by_id=current.id)
     db.add(cat)
     try:
         db.commit()
@@ -72,16 +83,14 @@ def create_category(
 
 @router.get("/", response_model=list[CategoryRead])
 def list_categories(db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Categories", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR))):
-    return db.scalars(select(Category).order_by(Category.name.asc())).all()
+    return db.scalars(
+        select(Category).where(Category.created_by_id == current.id).order_by(Category.name.asc())
+    ).all()
 
 
 @router.get("/{category_id}", response_model=CategoryRead)
 def get_category(category_id: str, db: Session = Depends(get_db_dep), current=Depends(require_permission("Manage Categories", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR))):
-    category_pk = parse_uuid_param(category_id, detail=_t("not_found"))
-    cat = db.get(Category, category_pk)
-    if not cat:
-        raise HTTPException(status_code=404, detail=_t("not_found"))
-    return cat
+    return _get_owned_category_or_404(db, category_id, current)
 
 
 @router.put("/{category_id}", response_model=CategoryRead)
@@ -92,12 +101,9 @@ def update_category(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Categories", RoleEnum.ADMIN, RoleEnum.INSTRUCTOR)),
 ):
-    category_pk = parse_uuid_param(category_id, detail=_t("not_found"))
-    cat = db.get(Category, category_pk)
-    if not cat:
-        raise HTTPException(status_code=404, detail=_t("not_found"))
+    cat = _get_owned_category_or_404(db, category_id, current)
     payload = _normalize_category_payload(body)
-    _ensure_unique_category_name(db, payload["name"], existing_category_id=cat.id)
+    _ensure_unique_category_name(db, payload["name"], current.id, existing_category_id=cat.id)
     for field, value in payload.items():
         setattr(cat, field, value)
     db.add(cat)
@@ -126,10 +132,7 @@ def delete_category(
     db: Session = Depends(get_db_dep),
     current=Depends(require_permission("Manage Categories", RoleEnum.ADMIN)),
 ):
-    category_pk = parse_uuid_param(category_id, detail=_t("not_found"))
-    cat = db.get(Category, category_pk)
-    if not cat:
-        raise HTTPException(status_code=404, detail=_t("not_found"))
+    cat = _get_owned_category_or_404(db, category_id, current)
     usage = db.scalar(select(func.count(Exam.id)).where(Exam.category_id == cat.id)) or 0
     if usage:
         raise HTTPException(status_code=409, detail=_t("cannot_delete_cat_assigned"))

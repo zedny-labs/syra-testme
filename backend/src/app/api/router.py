@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter
 
 from .routes import (
@@ -12,6 +14,7 @@ from .routes import (
     categories,
     grading_scales,
     question_pools,
+    exam_sections,
     dashboard,
     proctoring,
     notifications,
@@ -33,6 +36,15 @@ from .routes import (
 
 router = APIRouter(redirect_slashes=False)
 
+
+@router.get("/version", tags=["health"])
+def version():
+    """Git SHA of this deploy (BUILD_SHA env, injected via the compose env_file).
+    The deploy pipeline curls this to verify the running app == the shipped commit."""
+    sha = os.getenv("BUILD_SHA", "")
+    return {"sha": sha, "short_sha": sha[:7], "service": "syra"}
+
+
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(users.router, prefix="/users", tags=["users"])
 router.include_router(courses.router, prefix="/courses", tags=["courses"])
@@ -44,6 +56,7 @@ router.include_router(schedules.router, prefix="/schedules", tags=["schedules"])
 router.include_router(categories.router, prefix="/categories", tags=["categories"])
 router.include_router(grading_scales.router, prefix="/grading-scales", tags=["grading-scales"])
 router.include_router(question_pools.router, prefix="/question-pools", tags=["question-pools"])
+router.include_router(exam_sections.router, tags=["exam-sections"])
 router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 router.include_router(proctoring.router, prefix="/proctoring", tags=["proctoring"])
 router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])

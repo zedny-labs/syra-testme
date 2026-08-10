@@ -316,7 +316,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 1.5rem;
-  min-width: 480px;
+  width: min(480px, 90vw);
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;

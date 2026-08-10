@@ -1,9 +1,20 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { configDefaults } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react()],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // Make the canonical breakpoint helpers available in every SCSS file
+        // without a per-file @use. See src/styles/_breakpoints.scss.
+        loadPaths: [fileURLToPath(new URL('./src/styles', import.meta.url))],
+        additionalData: `@use 'breakpoints' as bp;\n`,
+      },
+    },
+  },
   server: {
     port: 5173
   },

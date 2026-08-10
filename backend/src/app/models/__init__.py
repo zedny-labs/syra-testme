@@ -139,11 +139,13 @@ class Node(Base):
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("created_by_id", "name", name="uq_category_owner_name"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[CategoryType] = mapped_column(SAEnum(CategoryType), default=CategoryType.TEST, nullable=False)
     description: Mapped[str | None] = mapped_column(String(1024))
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
 
     exams = relationship("Exam", back_populates="category")
 
@@ -154,6 +156,7 @@ class GradingScale(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     labels: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
 
     exams = relationship("Exam", back_populates="grading_scale")
 
@@ -171,6 +174,30 @@ class QuestionPool(Base):
     creator = relationship("User", back_populates="question_pools")
     questions = relationship("Question", back_populates="pool")
     library_exams = relationship("Exam", back_populates="library_pool", foreign_keys="Exam.library_pool_id")
+
+
+class ExamSection(Base):
+    __tablename__ = "exam_sections"
+    __table_args__ = (
+        Index("ix_exam_section_exam_order", "exam_id", "order"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exam_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(1024))
+    order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    source_pool_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("question_pools.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    exam = relationship("Exam", back_populates="sections")
+    questions = relationship("Question", back_populates="section", order_by="Question.order")
+    source_pool = relationship("QuestionPool", foreign_keys=[source_pool_id])
+
+    @hybrid_property
+    def question_count(self):
+        return len(self.questions) if self.questions else 0
 
 
 class Exam(Base):
@@ -203,6 +230,7 @@ class Exam(Base):
 
     node = relationship("Node", back_populates="exams")
     questions = relationship("Question", back_populates="exam", cascade="all, delete-orphan")
+    sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan", order_by="ExamSection.order")
     attempts = relationship("Attempt", back_populates="exam")
     schedules = relationship("Schedule", back_populates="exam")
     category = relationship("Category", back_populates="exams")
@@ -237,11 +265,13 @@ class Question(Base):
     order: Mapped[int] = mapped_column(Integer, default=0)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     pool_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("question_pools.id", ondelete="SET NULL"))
+    section_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     exam = relationship("Exam", back_populates="questions")
     pool = relationship("QuestionPool", back_populates="questions")
+    section = relationship("ExamSection", back_populates="questions")
     attempt_answers = relationship("AttemptAnswer", back_populates="question")
 
 
@@ -261,6 +291,7 @@ class Attempt(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     identity_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     face_signature: Mapped[dict | list | None] = mapped_column(JSON)
+    sections_finished: Mapped[list | None] = mapped_column(JSON, default=list)
     base_head_pose: Mapped[dict | None] = mapped_column(JSON)
     id_doc_path: Mapped[str | None] = mapped_column(String(512))
     selfie_path: Mapped[str | None] = mapped_column(String(512))
@@ -404,11 +435,13 @@ class SurveyResponse(Base):
 
 class UserGroup(Base):
     __tablename__ = "user_groups"
+    __table_args__ = (UniqueConstraint("created_by_id", "name", name="uq_user_group_owner_name"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1024))
     member_ids: Mapped[list | None] = mapped_column(JSON)
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -560,6 +593,8 @@ class ExamRuntimeConfig(Base):
     auto_logout_after_finish_or_pause: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     creation_method: Mapped[str | None] = mapped_column(String(128))
     score_report_include_certificate_status: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    sequential_sections: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    allow_revisit_sections: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
     exam = relationship("Exam", back_populates="runtime_config_rel")
     instruction_items = relationship("ExamRuntimeInstructionItem", back_populates="runtime_config", cascade="all, delete-orphan", order_by="ExamRuntimeInstructionItem.position")

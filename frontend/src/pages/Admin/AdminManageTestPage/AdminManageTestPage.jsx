@@ -22,6 +22,7 @@ import AdministrationTab from './tabs/AdministrationTab'
 import CandidatesTab from './tabs/CandidatesTab'
 import ProctoringTab from './tabs/ProctoringTab'
 import QuestionsTab from './tabs/QuestionsTab'
+import SectionsManager from '../SectionsManager/SectionsManager'
 import ReportsTab from './tabs/ReportsTab'
 import SessionsTab from './tabs/SessionsTab'
 import SettingsTab from './tabs/SettingsTab'
@@ -1173,7 +1174,7 @@ export default function AdminManageTestPage() {
       if (needsCategories) tasks.push(['categories', adminApi.categories(requestOptions)])
       if (needsQuestions) tasks.push(['questions', adminApi.getQuestions(id, requestOptions)])
       if (needsSessions) tasks.push(['sessions', adminApi.schedules({ ...requestOptions, params: { exam_id: id } })])
-      if (needsUsers) tasks.push(['users', adminApi.users({ role: 'LEARNER', skip: 0, limit: 200 }, requestOptions)])
+      if (needsUsers) tasks.push(['users', adminApi.learnersForScheduling({ is_active: true }, requestOptions)])
       if (needsAttempts) tasks.push(['attempts', adminApi.attempts({ exam_id: id, skip: 0, limit: 200 }, requestOptions)])
 
       if (tasks.length === 0) return
@@ -1198,7 +1199,11 @@ export default function AdminManageTestPage() {
       }
       if (needsQuestions) setQuestions(payloads.questions || [])
 
-      const resolvedUsers = payloads.users != null ? readPaginatedItems(payloads.users) : usersRef.current
+      // learnersForScheduling returns a plain UserRead[]; fall back to the
+      // paginated envelope reader for any other shape.
+      const resolvedUsers = payloads.users != null
+        ? (Array.isArray(payloads.users) ? payloads.users : readPaginatedItems(payloads.users))
+        : usersRef.current
       if (needsUsers) setUsers(resolvedUsers)
 
       const resolvedSessions = payloads.sessions != null
@@ -3943,27 +3948,33 @@ export default function AdminManageTestPage() {
         )}
 
         {tab === 'sections' && (
-          <QuestionsTab
-            questions={questions}
-            questionSearch={questionSearch}
-            setQuestionSearch={setQuestionSearch}
-            questionForm={questionForm}
-            lockedExamFields={lockedExamFields}
-            handleQuestionTypeChange={handleQuestionTypeChange}
-            setQuestionForm={setQuestionForm}
-            questionTypes={QUESTION_TYPES}
-            questionBusy={questionBusy}
-            editingQuestionId={editingQuestionId}
-            resetQuestionForm={resetQuestionForm}
-            handleQuestionSubmit={handleQuestionSubmit}
-            filteredQuestions={filteredQuestions}
-            questionTypeOf={questionTypeOf}
-            deletingQuestionBusyId={deletingQuestionBusyId}
-            deleteQuestionId={deleteQuestionId}
-            setDeleteQuestionId={setDeleteQuestionId}
-            startEditQuestion={startEditQuestion}
-            handleDeleteQuestion={handleDeleteQuestion}
-          />
+          <>
+            <SectionsManager
+              examId={id}
+              onChange={() => adminApi.getQuestions(id).then(({ data }) => setQuestions(data || [])).catch(() => {})}
+            />
+            <QuestionsTab
+              questions={questions}
+              questionSearch={questionSearch}
+              setQuestionSearch={setQuestionSearch}
+              questionForm={questionForm}
+              lockedExamFields={lockedExamFields}
+              handleQuestionTypeChange={handleQuestionTypeChange}
+              setQuestionForm={setQuestionForm}
+              questionTypes={QUESTION_TYPES}
+              questionBusy={questionBusy}
+              editingQuestionId={editingQuestionId}
+              resetQuestionForm={resetQuestionForm}
+              handleQuestionSubmit={handleQuestionSubmit}
+              filteredQuestions={filteredQuestions}
+              questionTypeOf={questionTypeOf}
+              deletingQuestionBusyId={deletingQuestionBusyId}
+              deleteQuestionId={deleteQuestionId}
+              setDeleteQuestionId={setDeleteQuestionId}
+              startEditQuestion={startEditQuestion}
+              handleDeleteQuestion={handleDeleteQuestion}
+            />
+          </>
         )}
 
         {tab === 'sessions' && (

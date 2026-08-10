@@ -41,27 +41,35 @@ def seed():
             email="instructor@example.com", name="Dr. Sarah Ahmed", user_id="INS001",
             role=RoleEnum.INSTRUCTOR, hashed_password=hash_password("Instructor1234!"),
         )
+        # Flush the owning accounts first so their ids are available to stamp on
+        # the learners they create (created_by_id).
+        db.add_all([admin, instructor])
+        db.flush()
+
         learner1 = User(
             email="student1@example.com", name="Omar Hassan", user_id="STU001",
             role=RoleEnum.LEARNER, hashed_password=hash_password("Student1234!"),
+            created_by_id=instructor.id,
         )
         learner2 = User(
             email="student2@example.com", name="Fatima Ali", user_id="STU002",
             role=RoleEnum.LEARNER, hashed_password=hash_password("Student1234!"),
+            created_by_id=instructor.id,
         )
-        db.add_all([admin, instructor, learner1, learner2])
+        db.add_all([learner1, learner2])
         db.flush()
 
         # --- Category ---
-        cat_test = Category(name="Final Exams", type=CategoryType.TEST, description="End-of-semester assessments")
-        cat_quiz = Category(name="Quizzes", type=CategoryType.TEST, description="Quick knowledge checks")
-        cat_survey = Category(name="Course Feedback", type=CategoryType.SURVEY, description="Student satisfaction surveys")
+        cat_test = Category(name="Final Exams", type=CategoryType.TEST, description="End-of-semester assessments", created_by_id=instructor.id)
+        cat_quiz = Category(name="Quizzes", type=CategoryType.TEST, description="Quick knowledge checks", created_by_id=instructor.id)
+        cat_survey = Category(name="Course Feedback", type=CategoryType.SURVEY, description="Student satisfaction surveys", created_by_id=instructor.id)
         db.add_all([cat_test, cat_quiz, cat_survey])
         db.flush()
 
         # --- Grading Scale ---
         scale = GradingScale(
             name="Standard Letter Grade",
+            created_by_id=instructor.id,
             labels=[
                 {"label": "A+", "min_score": 95, "max_score": 100},
                 {"label": "A", "min_score": 90, "max_score": 94.99},

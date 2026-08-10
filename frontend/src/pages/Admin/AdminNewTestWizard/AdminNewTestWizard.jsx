@@ -15,6 +15,7 @@ import { normalizeProctoringConfig } from '../../../utils/proctoringRequirements
 import { readPaginatedItems } from '../../../utils/pagination'
 import useLanguage from '../../../hooks/useLanguage'
 import ExamQuestionPanel from '../ExamQuestionPanel/ExamQuestionPanel'
+import SectionsManager from '../SectionsManager/SectionsManager'
 import styles from './AdminNewTestWizard.module.scss'
 
 const STEPS = [
@@ -361,6 +362,8 @@ export default function AdminNewTestWizard() {
   const [negMarkType, setNegMarkType] = useState('points')
   const [showFinalScore, setShowFinalScore] = useState(true)
   const [showQuestionScores, setShowQuestionScores] = useState(false)
+  const [sequentialSections, setSequentialSections] = useState(false)
+  const [allowRevisitSections, setAllowRevisitSections] = useState(true)
 
   /* ─── Step 5: Certificates ─── */
   const [certEnabled, setCertEnabled] = useState(false)
@@ -657,6 +660,8 @@ export default function AdminNewTestWizard() {
       setNegMarkType(runtimeSettings.neg_mark_type || 'points')
       setShowFinalScore(runtimeSettings.show_final_score ?? true)
       setShowQuestionScores(!!runtimeSettings.show_question_scores)
+      setSequentialSections(!!runtimeSettings.sequential_sections)
+      setAllowRevisitSections(runtimeSettings.allow_revisit_sections ?? true)
       setSpecialAccommodations(runtimeSettings.special_accommodations || '')
       setSpecialRequests(runtimeSettings.special_requests || '')
       if (test.certificate) {
@@ -762,6 +767,8 @@ export default function AdminNewTestWizard() {
       neg_mark_type: negMarkType,
       show_final_score: showFinalScore,
       show_question_scores: showQuestionScores,
+      sequential_sections: sequentialSections,
+      allow_revisit_sections: allowRevisitSections,
       special_accommodations: specialAccommodations,
       special_requests: specialRequests,
     }), [
@@ -790,6 +797,8 @@ export default function AdminNewTestWizard() {
       negMarkType,
       showFinalScore,
       showQuestionScores,
+      sequentialSections,
+      allowRevisitSections,
       specialAccommodations,
       specialRequests,
     ])
@@ -2464,28 +2473,14 @@ export default function AdminNewTestWizard() {
             {t('admin_wizard_questions_intro')}
           </p>
 
-          {method === 'manual' && examId && (
-            <>
-              <div className={styles.poolSeed}>
-                <span className={styles.poolSeedLabel}>{t('admin_wizard_seed_from_pool')}</span>
-                <select className={`${styles.select} ${styles.poolSeedSelect}`} value={selectedPool} onChange={e => setSelectedPool(e.target.value)}>
-                  <option value="">{t('admin_wizard_select_pool')}</option>
-                  {pools.map(p => <option key={p.id} value={p.id}>{p.name} ({Number(p.question_count || 0)})</option>)}
-                </select>
-                <input className={`${styles.input} ${styles.poolSeedCountInput}`} type="number" min={1} max={100} value={seedCount} onChange={e => setSeedCount(Number(e.target.value))} />
-                <button className={styles.btnSeed} onClick={handleSeedPool} disabled={!selectedPool || !examId || saving || selectedPoolCount < 1}>
-                  {saving ? t('saving') : t('admin_wizard_seed')}
-                </button>
-              </div>
-              {selectedPool && (
-                <div className={styles.helper}>
-                  {selectedPoolCount > 0
-                    ? `${selectedPoolCount} ${t('admin_wizard_pool_available')}`
-                    : t('admin_wizard_pool_empty_hint')}
-                </div>
-              )}
+          {examId && (
+            <div className={styles.questionsStack}>
+              <SectionsManager
+                examId={examId}
+                onChange={() => adminApi.getQuestions(examId).then(({ data }) => setQuestions(data || [])).catch(() => {})}
+              />
               <ExamQuestionPanel examId={examId} questions={questions} onUpdate={setQuestions} questionTypes={QUESTION_TYPES} />
-            </>
+            </div>
           )}
           {!examId && (
             <div className={styles.questionInitCard}>
@@ -2557,6 +2552,14 @@ export default function AdminNewTestWizard() {
             <label className={styles.checkItem}>
               <input type="checkbox" checked={showQuestionScores} onChange={e => { setShowQuestionScores(e.target.checked); if (examId) autoPersist() }} />
               <span>{t('admin_wizard_show_per_question')}</span>
+            </label>
+            <label className={styles.checkItem}>
+              <input type="checkbox" checked={sequentialSections} onChange={e => { setSequentialSections(e.target.checked); if (examId) autoPersist() }} />
+              <span>{t('admin_wizard_sequential_sections')}</span>
+            </label>
+            <label className={styles.checkItem}>
+              <input type="checkbox" checked={allowRevisitSections} onChange={e => { setAllowRevisitSections(e.target.checked); if (examId) autoPersist() }} />
+              <span>{t('admin_wizard_allow_revisit_sections')}</span>
             </label>
             </div>
 

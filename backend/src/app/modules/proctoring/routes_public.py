@@ -52,6 +52,11 @@ from ...services.cloudflare_media import (
 )
 from ...services.supabase_storage import create_signed_url as create_supabase_signed_url
 from ...services.supabase_storage import upload_bytes as upload_bytes_to_supabase
+from ...services.vimeo_media import (
+    get_vimeo_video_details,
+    upload_video_to_vimeo,
+    vimeo_video_storage_enabled,
+)
 from ...core.i18n import translate as _t
 from ...utils.request_ip import get_request_ip, get_websocket_ip
 from ...utils.response_cache import TimedSingleFlightCache
@@ -114,6 +119,13 @@ def _video_storage_provider() -> str:
                 detail=_t("supabase_not_configured"),
             )
         return "supabase"
+    if provider == "vimeo":
+        if not vimeo_video_storage_enabled():
+            raise HTTPException(
+                status_code=503,
+                detail=_t("vimeo_not_configured"),
+            )
+        return "vimeo"
     raise HTTPException(
         status_code=503,
         detail=_t("unsupported_video_provider", provider=provider),
@@ -131,6 +143,13 @@ def _require_cloudflare_video_storage() -> None:
 def _cloudflare_upload_queue_enabled() -> bool:
     provider = str(get_settings().PROCTORING_VIDEO_STORAGE_PROVIDER or "").strip().lower()
     return provider == "cloudflare" and video_job_queue_enabled()
+
+
+def _queued_upload_enabled(provider: str) -> bool:
+    # Cloudflare and Vimeo uploads are slow (transcode / resumable tus), so they run
+    # through the spool -> Celery path when a job queue is configured. Supabase writes
+    # bytes synchronously and does not use the queue.
+    return str(provider or "").strip().lower() in {"cloudflare", "vimeo"} and video_job_queue_enabled()
 
 
 def _is_absolute_http_url(value: object) -> bool:
@@ -176,6 +195,25 @@ async def _hydrate_video_file_info(item: dict[str, object]) -> dict[str, object]
                 hydrated[key] = sign_cloudflare_playback_url(raw_url)
         return hydrated
 
+    if provider == "vimeo":
+        status = str(hydrated.get("status") or "").strip().lower()
+        if hydrated.get("ready_to_stream") is not True or status in {"processing", "uploading", "pending", "queued", "inprogress"}:
+            refreshed = await get_vimeo_video_details(
+                uid=str(hydrated.get("uid") or "").strip() or None,
+                uri=str(hydrated.get("uri") or "").strip() or None,
+                source=_normalize_video_source(hydrated.get("source")),
+            )
+            if refreshed:
+                merged = {**hydrated, **refreshed}
+                # Vimeo detail responses omit byte size and some capture context; keep ours.
+                if not merged.get("size") and hydrated.get("size"):
+                    merged["size"] = hydrated.get("size")
+                for key in ("session_id", "recording_started_at", "recording_stopped_at", "source"):
+                    if merged.get(key) in (None, "") and hydrated.get(key) not in (None, ""):
+                        merged[key] = hydrated.get(key)
+                hydrated = merged
+        return hydrated
+
     if provider != "supabase":
         return hydrated
 
@@ -202,9 +240,11 @@ def _normalize_saved_video_meta(meta: object, occurred_at: datetime | None = Non
     provider = str(meta.get("provider") or "").strip().lower()
     if not provider:
         provider = "supabase" if path.startswith("videos/") else "cloudflare"
-    if provider not in {"cloudflare", "supabase"}:
+    if provider not in {"cloudflare", "supabase", "vimeo"}:
         return None
     if provider == "cloudflare" and not _is_absolute_http_url(url):
+        return None
+    if provider == "vimeo" and not _is_absolute_http_url(url):
         return None
     if provider == "supabase" and not (path or _is_absolute_http_url(url)):
         return None
@@ -214,11 +254,13 @@ def _normalize_saved_video_meta(meta: object, occurred_at: datetime | None = Non
         created_at = occurred_at.isoformat()
     status = str(meta.get("status") or "").strip().lower()
     explicit_ready = meta.get("ready_to_stream") if isinstance(meta, dict) and "ready_to_stream" in meta else None
-    ready_to_stream = (
-        infer_cloudflare_ready_to_stream(status=status, ready_to_stream=explicit_ready, playback_url=url)
-        if provider == "cloudflare"
-        else bool(path or _is_absolute_http_url(url))
-    )
+    if provider == "cloudflare":
+        ready_to_stream = infer_cloudflare_ready_to_stream(status=status, ready_to_stream=explicit_ready, playback_url=url)
+    elif provider == "vimeo":
+        # Vimeo transcodes asynchronously; it is only playable once marked ready.
+        ready_to_stream = (explicit_ready is True) or status == "ready"
+    else:
+        ready_to_stream = bool(path or _is_absolute_http_url(url))
 
     resolved_name = name or (Path(path).name if path else "") or (str(meta.get("uid") or "").strip() or url.rstrip("/").rsplit("/", 1)[-1] or "recording")
     item: dict[str, object] = {
@@ -235,7 +277,7 @@ def _normalize_saved_video_meta(meta: object, occurred_at: datetime | None = Non
         item["url"] = url
         item["playback_url"] = str(meta.get("playback_url") or url).strip()
 
-    for key in ("uid", "status", "thumbnail", "duration", "session_id", "playback_type", "recording_started_at", "recording_stopped_at", "bucket"):
+    for key in ("uid", "uri", "hash", "status", "thumbnail", "duration", "session_id", "playback_type", "recording_started_at", "recording_stopped_at", "bucket"):
         if meta.get(key) not in (None, ""):
             item[key] = meta.get(key)
 
@@ -838,6 +880,59 @@ async def _build_supabase_video_info(
     }
 
 
+async def _build_vimeo_video_info(
+    attempt_id: str,
+    *,
+    session_id: str,
+    source: str,
+    filename: str,
+    file_path: Path,
+    recording_started_at: str | None,
+    recording_stopped_at: str | None,
+) -> dict[str, object]:
+    safe_filename = Path(filename).name
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail=_t("valid_video_filename_required"))
+
+    try:
+        remote = await upload_video_to_vimeo(
+            file_path,
+            filename=safe_filename,
+            source=_normalize_video_source(source),
+        )
+    except Exception as exc:
+        logger.exception("Vimeo video upload failed for attempt %s", attempt_id)
+        raise HTTPException(status_code=502, detail=_t("vimeo_upload_failed")) from exc
+
+    playback_url = str(remote.get("playback_url") or remote.get("url") or "").strip()
+    if not playback_url:
+        raise HTTPException(status_code=502, detail=_t("vimeo_no_playback_url"))
+
+    fallback_size = file_path.stat().st_size if file_path.exists() else 0
+    file_info: dict[str, object] = {
+        "provider": "vimeo",
+        "name": str(remote.get("name") or safe_filename),
+        "uid": remote.get("uid"),
+        "uri": remote.get("uri"),
+        "hash": remote.get("hash"),
+        "url": playback_url,
+        "playback_url": playback_url,
+        "playback_type": "vimeo_embed",
+        "thumbnail": remote.get("thumbnail"),
+        "size": int(remote.get("size") or fallback_size),
+        "source": _normalize_video_source(source),
+        "session_id": session_id,
+        "created_at": str(remote.get("created_at") or datetime.now(timezone.utc).isoformat()),
+        "ready_to_stream": bool(remote.get("ready_to_stream")),
+        "status": str(remote.get("status") or "processing"),
+        "duration": remote.get("duration"),
+        "recording_started_at": recording_started_at,
+        "recording_stopped_at": recording_stopped_at,
+        "remote": remote.get("remote") if isinstance(remote.get("remote"), dict) else remote,
+    }
+    return {key: value for key, value in file_info.items() if value not in (None, "")}
+
+
 def _normalize_iso_datetime(value: object) -> str | None:
     raw = str(value or "").strip()
     if not raw:
@@ -1242,10 +1337,22 @@ AUTO_SUBMIT_EXCLUDED_EVENT_TYPES = {
 }
 
 
+# Ignore low-confidence AI detections when deciding whether to auto-submit. A
+# degraded/unavailable model that slips through and emits noisy detections should
+# never be able to force-submit a real student. Deterministic browser events
+# (fullscreen exit, etc.) carry no ai_confidence and always count.
+AUTO_SUBMIT_MIN_CONFIDENCE = 0.6
+
+
 def _count_auto_submit_alerts(events: list[ProctoringEvent]) -> int:
     count = 0
     for event in events:
         if event.event_type in AUTO_SUBMIT_EXCLUDED_EVENT_TYPES:
+            continue
+        confidence = event.ai_confidence
+        if confidence is not None and confidence < AUTO_SUBMIT_MIN_CONFIDENCE:
+            # Unreliable AI detection (e.g. from a degraded detector) — don't let
+            # it count toward force-submitting the attempt.
             continue
         count += 1
     return count
@@ -1664,13 +1771,14 @@ async def upload_video_capture(
     normalized_recording_stopped_at = _normalize_iso_datetime(recording_stopped_at)
     provider = _video_storage_provider()
 
-    if provider == "cloudflare" and _cloudflare_upload_queue_enabled():
+    if _queued_upload_enabled(provider):
         spool_path, upload_size = await _write_video_upload_to_spool_file(request, suffix=f".{extension}")
         try:
             queued_job = upload_proctoring_video_capture.apply_async(
                 kwargs={
                     "attempt_id": str(attempt_id),
                     "upload_request": {
+                        "provider": provider,
                         "session_id": session_id,
                         "source": normalized_source,
                         "filename": safe_filename,
@@ -1687,7 +1795,7 @@ async def upload_video_capture(
             )
         except Exception:
             spool_path.unlink(missing_ok=True)
-            logger.exception("Failed to queue Cloudflare video upload for attempt %s", attempt_id)
+            logger.exception("Failed to queue %s video upload for attempt %s", provider, attempt_id)
             raise HTTPException(status_code=503, detail=_t("cf_queue_unavailable"))
 
         return JSONResponse(
@@ -1748,6 +1856,16 @@ async def upload_video_capture(
                 filename=safe_filename,
                 content=temp_path.read_bytes(),
                 content_type=content_type,
+                recording_started_at=normalized_recording_started_at,
+                recording_stopped_at=normalized_recording_stopped_at,
+            )
+        elif provider == "vimeo":
+            file_info = await _build_vimeo_video_info(
+                attempt_id,
+                session_id=session_id,
+                source=normalized_source,
+                filename=safe_filename,
+                file_path=temp_path,
                 recording_started_at=normalized_recording_started_at,
                 recording_stopped_at=normalized_recording_stopped_at,
             )

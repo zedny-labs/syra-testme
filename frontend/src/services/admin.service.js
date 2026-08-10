@@ -49,6 +49,15 @@ export const adminApi = {
     api.post(`question-pools/${poolId}/seed-exam/${examId}`, null, { params: { count } }),
   deleteQuestionPool: (id) => api.delete(`question-pools/${id}`),
 
+  // Exam sections
+  getExamSections: (examId) => api.get(`exams/${examId}/sections`),
+  createSection: (examId, data) => api.post(`exams/${examId}/sections`, data),
+  createSectionFromPool: (examId, data) => api.post(`exams/${examId}/sections/from-pool`, data),
+  updateSection: (sectionId, data) => api.put(`sections/${sectionId}`, data),
+  deleteSection: (sectionId) => api.delete(`sections/${sectionId}`),
+  reorderSections: (examId, sections) => api.post(`exams/${examId}/sections/reorder`, { sections }),
+  getLearnerSections: (examId) => api.get(`exams/${examId}/learner-sections`),
+
   // Schedules
   schedulableTests: (opts) => api.get('schedules/tests', opts),
   schedules: (opts) => api.get('schedules/', opts),

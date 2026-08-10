@@ -80,8 +80,11 @@ def create_question(body: QuestionCreate, db: Session = Depends(get_db_dep), cur
     ensure_exam_owner(exam, current, detail=_t("not_allowed"), status_code=403)
     if exam.status == ExamStatus.OPEN:
         raise HTTPException(status_code=409, detail=_t("cannot_add_to_published"))
+    from app.api.routes.exam_sections import ensure_general_section
+    payload = sanitize_question_payload(body.model_dump())
+    payload["section_id"] = body.section_id or ensure_general_section(db, exam).id
     now = datetime.now(timezone.utc)
-    q = Question(**sanitize_question_payload(body.model_dump()), created_at=now, updated_at=now)
+    q = Question(**payload, created_at=now, updated_at=now)
     db.add(q)
     db.commit()
     db.refresh(q)
@@ -146,7 +149,7 @@ def update_question(question_id: str, body: QuestionBase, db: Session = Depends(
     ensure_exam_owner(q.exam, current, detail=_t("not_allowed"), status_code=403)
     if q.exam and q.exam.status == ExamStatus.OPEN:
         raise HTTPException(status_code=409, detail=_t("cannot_modify_published"))
-    protected = {"exam_id", "created_at"}
+    protected = {"exam_id", "created_at", "section_id"}
     now = datetime.now(timezone.utc)
     for field, value in sanitize_question_payload(body.model_dump()).items():
         if field not in protected:

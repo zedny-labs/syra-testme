@@ -203,29 +203,32 @@ def _cleanup_pool_library_resources(db: Session, pool_id) -> None:
 
 
 def _load_pool_questions(db: Session, pool_id):
-    direct_questions = db.scalars(
-        select(Question).where(Question.pool_id == pool_id).order_by(Question.order.asc(), Question.created_at.asc())
-    ).all()
-    if direct_questions:
-        return direct_questions
-
-    # Pool questions are stored in hidden exams to preserve the legacy schema until
-    # the system can move to a dedicated junction-table design.
+    # A pool's questions are stored in a hidden "library" exam (legacy schema,
+    # until a dedicated junction-table design lands). When a pool is seeded into
+    # a real exam, each seeded copy KEEPS its pool_id (used for re-seed dedup),
+    # so filtering on pool_id alone would also return those copies and show every
+    # question twice in the pool. Scope the lookup to the library exam instead.
     library_exam = _find_pool_library_exam(db, pool_id)
-    if not library_exam:
-        corrupted_exam = _find_corrupted_pool_library_exam(db, pool_id)
-        if corrupted_exam:
-            logger.warning(
-                "Question pool %s has a hidden library exam %s with missing or corrupt _pool_library metadata",
-                pool_id,
-                getattr(corrupted_exam, "id", None),
-            )
-        return []
-    if not _is_pool_library_exam(library_exam, pool_id):
-        logger.warning("Question pool %s library exam metadata is invalid", pool_id)
-        return []
+    if library_exam:
+        if not _is_pool_library_exam(library_exam, pool_id):
+            logger.warning("Question pool %s library exam metadata is invalid", pool_id)
+            return []
+        return db.scalars(
+            select(Question).where(Question.exam_id == library_exam.id).order_by(Question.order.asc(), Question.created_at.asc())
+        ).all()
+
+    corrupted_exam = _find_corrupted_pool_library_exam(db, pool_id)
+    if corrupted_exam:
+        logger.warning(
+            "Question pool %s has a hidden library exam %s with missing or corrupt _pool_library metadata",
+            pool_id,
+            getattr(corrupted_exam, "id", None),
+        )
+    # Legacy fallback: pools created before the hidden-exam design stored their
+    # questions with only pool_id and never had copies seeded elsewhere, so
+    # matching on pool_id is safe (and cannot duplicate) in that case.
     return db.scalars(
-        select(Question).where(Question.exam_id == library_exam.id).order_by(Question.order.asc(), Question.created_at.asc())
+        select(Question).where(Question.pool_id == pool_id).order_by(Question.order.asc(), Question.created_at.asc())
     ).all()
 
 
@@ -503,12 +506,15 @@ def seed_exam_from_pool(
     existing_max = db.scalar(
         select(func.max(Question.order)).where(Question.exam_id == exam_pk)
     ) or 0
+    from app.api.routes.exam_sections import ensure_general_section
+    section = ensure_general_section(db, exam)
     selected = random.sample(candidates, min(count, len(candidates)))
     for i, pq in enumerate(selected):
         q = Question(
             exam_id=exam_pk, text=pq.text, type=pq.type, options=pq.options,
             correct_answer=pq.correct_answer, points=pq.points,
             order=existing_max + i + 1, pool_id=pool_pk, image_url=pq.image_url,
+            section_id=section.id,
         )
         db.add(q)
     db.commit()

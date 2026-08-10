@@ -6,6 +6,7 @@ import { fetchAuthenticatedMediaObjectUrl, revokeObjectUrl } from '../../../util
 import { translateEventType, translateSeverity } from '../../../utils/proctoringLabels'
 import { readPaginatedItems } from '../../../utils/pagination'
 import useLanguage from '../../../hooks/useLanguage'
+import { buildVimeoEmbedSrc, isVimeoPlayback } from './vimeoPlayback'
 import styles from './AdminAttemptVideos.module.scss'
 
 const WARN_SEVERITIES = new Set(['HIGH', 'MEDIUM'])
@@ -127,6 +128,8 @@ export default function AdminAttemptVideos() {
   const navigate = useNavigate()
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
+  const vimeoIframeRef = useRef(null)
+  const vimeoPlayerRef = useRef(null)
   const durationProbeKeyRef = useRef('')
   const dataAbortRef = useRef(null)
 
@@ -293,6 +296,10 @@ export default function AdminAttemptVideos() {
     () => isHlsPlaybackUrl(selectedVideoUrl || selectedVideo?.url, selectedVideo?.playback_type),
     [selectedVideo?.playback_type, selectedVideo?.url, selectedVideoUrl],
   )
+  const selectedVideoIsVimeo = useMemo(
+    () => isVimeoPlayback(selectedVideo, selectedVideoUrl),
+    [selectedVideo, selectedVideoUrl],
+  )
   const latestVideosBySource = useMemo(() => {
     const bySource = new Map()
     for (const video of videos) {
@@ -414,6 +421,12 @@ export default function AdminAttemptVideos() {
         setWarning((current) => current || t('admin_videos_no_playback_url'))
         return
       }
+      if (isVimeoPlayback(selectedVideo, selectedVideo.url)) {
+        // Vimeo recordings play through their embed iframe; the URL is a player
+        // page, not a media file, so it must not be fetched as authenticated media.
+        setSelectedVideoUrl(selectedVideo.url)
+        return
+      }
       try {
         objectUrl = await fetchAuthenticatedMediaObjectUrl(selectedVideo.url, { signal: controller.signal })
         if (controller.signal.aborted) {
@@ -521,8 +534,15 @@ export default function AdminAttemptVideos() {
   ]
 
   const seekTo = (second) => {
-    if (!videoRef.current) return
     const target = Math.max(0, Math.min(second, effectiveDuration || second))
+    if (selectedVideoIsVimeo) {
+      const player = vimeoPlayerRef.current
+      if (!player) return
+      player.setCurrentTime(target).catch(() => {})
+      setCurrentTime(target)
+      return
+    }
+    if (!videoRef.current) return
     videoRef.current.currentTime = target
     setCurrentTime(target)
   }
@@ -656,6 +676,51 @@ export default function AdminAttemptVideos() {
       }
     }
   }, [probeVideoDuration, selectedVideoUrl, selectedVideoUsesHls, syncDurationFromVideo])
+
+  // Vimeo recordings play in an embed iframe. Drive it with the Vimeo Player SDK
+  // so the warning timeline keeps working (seek-to-moment + live currentTime),
+  // exactly like the <video> element does for Cloudflare/Supabase recordings.
+  useEffect(() => {
+    if (!selectedVideoIsVimeo || !selectedVideoUrl) return undefined
+    const iframe = vimeoIframeRef.current
+    if (!iframe) return undefined
+
+    let cancelled = false
+    let player = null
+    ;(async () => {
+      try {
+        const { default: Player } = await import('@vimeo/player')
+        if (cancelled) return
+        player = new Player(iframe)
+        vimeoPlayerRef.current = player
+        player.on('timeupdate', ({ seconds, duration: dur }) => {
+          setCurrentTime(Number.isFinite(seconds) ? seconds : 0)
+          if (Number.isFinite(dur) && dur > 0) setDuration(dur)
+        })
+        player.on('loaded', () => {
+          player.getDuration()
+            .then((d) => { if (!cancelled && Number.isFinite(d) && d > 0) setDuration(d) })
+            .catch(() => {})
+        })
+        const initialDuration = await player.getDuration().catch(() => 0)
+        if (!cancelled && Number.isFinite(initialDuration) && initialDuration > 0) {
+          setDuration(initialDuration)
+        }
+      } catch {
+        if (!cancelled) setWarning((current) => current || t('admin_videos_stream_play_failed'))
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      if (player) {
+        try { player.off('timeupdate') } catch { /* noop */ }
+        try { player.off('loaded') } catch { /* noop */ }
+        try { player.destroy() } catch { /* noop */ }
+      }
+      if (vimeoPlayerRef.current === player) vimeoPlayerRef.current = null
+    }
+  }, [selectedVideoIsVimeo, selectedVideoUrl, t])
 
   useEffect(() => () => {
     if (dataAbortRef.current) dataAbortRef.current.abort()
@@ -845,23 +910,35 @@ export default function AdminAttemptVideos() {
 
             <div className={styles.playerViewport}>
               {selectedVideoUrl ? (
-                <video
-                  key={`${selectedVideo?.name || 'recording'}-${selectedVideoUsesHls ? 'hls' : 'file'}`}
-                  ref={videoRef}
-                  controls
-                  preload="metadata"
-                  className={styles.video}
-                  src={selectedVideoUsesHls ? undefined : selectedVideoUrl}
-                  onLoadedMetadata={(e) => {
-                    syncDurationFromVideo(e.currentTarget)
-                    probeVideoDuration(e.currentTarget)
-                  }}
-                  onDurationChange={(e) => syncDurationFromVideo(e.currentTarget)}
-                  onTimeUpdate={(e) => {
-                    setCurrentTime(e.currentTarget.currentTime || 0)
-                    syncDurationFromVideo(e.currentTarget)
-                  }}
-                />
+                selectedVideoIsVimeo ? (
+                  <iframe
+                    key={`vimeo-${selectedVideo?.name || 'recording'}`}
+                    ref={vimeoIframeRef}
+                    className={styles.video}
+                    src={buildVimeoEmbedSrc(selectedVideoUrl)}
+                    title={selectedVideo?.name || t('admin_videos_source_recording')}
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    key={`${selectedVideo?.name || 'recording'}-${selectedVideoUsesHls ? 'hls' : 'file'}`}
+                    ref={videoRef}
+                    controls
+                    preload="metadata"
+                    className={styles.video}
+                    src={selectedVideoUsesHls ? undefined : selectedVideoUrl}
+                    onLoadedMetadata={(e) => {
+                      syncDurationFromVideo(e.currentTarget)
+                      probeVideoDuration(e.currentTarget)
+                    }}
+                    onDurationChange={(e) => syncDurationFromVideo(e.currentTarget)}
+                    onTimeUpdate={(e) => {
+                      setCurrentTime(e.currentTarget.currentTime || 0)
+                      syncDurationFromVideo(e.currentTarget)
+                    }}
+                  />
+                )
               ) : (
                 <div className={styles.videoLoading}>{describeVideoAvailability(selectedVideo, t)}</div>
               )}

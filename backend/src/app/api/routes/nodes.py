@@ -9,6 +9,7 @@ from ...schemas import NodeCreate, NodeRead, NodeBase, Message
 from ...services.sanitization import sanitize_plain_text
 from ...core.i18n import translate as _t
 from ..deps import ensure_permission, get_current_user, get_db_dep, parse_uuid_param, require_permission
+from .courses import _exclude_internal_library_courses
 
 router = APIRouter()
 
@@ -30,15 +31,18 @@ def create_node(body: NodeCreate, db: Session = Depends(get_db_dep), current=Dep
 
 @router.get("/", response_model=list[NodeRead])
 def list_nodes(course_id: str | None = None, db: Session = Depends(get_db_dep), current=Depends(get_current_user)):
-    query = select(Node)
+    # Join Course once so we can hide modules that belong to the internal
+    # "Question Pool Library" course (its "Shared Pool Questions" node is pool
+    # storage, not a real module) from every role.
+    query = _exclude_internal_library_courses(select(Node).join(Course, Node.course_id == Course.id))
     if course_id:
         course_pk = parse_uuid_param(course_id, detail=_t("invalid_course_id"))
         query = query.where(Node.course_id == course_pk)
     if current.role == RoleEnum.LEARNER:
-        query = query.join(Course, Node.course_id == Course.id).where(Course.status == CourseStatus.PUBLISHED)
+        query = query.where(Course.status == CourseStatus.PUBLISHED)
     else:
         ensure_permission(db, current, "Edit Tests")
-        query = query.join(Course, Node.course_id == Course.id).where(Course.created_by_id == current.id)
+        query = query.where(Course.created_by_id == current.id)
     query = query.order_by(Node.order)
     return db.scalars(query).all()
 

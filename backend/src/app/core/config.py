@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     BACKEND_BASE_URL: str = Field(default="http://127.0.0.1:8000")
 
     CORS_ORIGINS: str = Field(default="")
+    # Git SHA of the deployed commit, seeded by the deploy pipeline. Exposed at
+    # /api/version so the deploy can verify the running app == the shipped commit.
+    BUILD_SHA: str = Field(default="")
     RATE_LIMIT_LOGIN: str = Field(default="120/minute")
     RATE_LIMIT_REFRESH: str = Field(default="60/minute")
     RATE_LIMIT_FORGOT: str = Field(default="5/minute")
@@ -92,6 +95,16 @@ class Settings(BaseSettings):
     SUPABASE_SECRET_KEY: str | None = None
     SUPABASE_STORAGE_BUCKET: str = Field(default="syra-media")
     SUPABASE_SIGNED_URL_EXPIRES_SECONDS: int = Field(default=3600, ge=60)
+    # Vimeo proctoring-video storage (used when PROCTORING_VIDEO_STORAGE_PROVIDER == "vimeo").
+    VIMEO_ACCESS_TOKEN: str = Field(default="")
+    # Optional Vimeo folder/project id (numeric) to keep proctoring recordings isolated
+    # from other content on the account.
+    VIMEO_FOLDER_ID: str | None = None
+    # Privacy applied to each uploaded recording. "unlisted" hides it from vimeo.com but
+    # keeps it embeddable via its private hash; "disable" additionally blocks direct viewing.
+    VIMEO_PRIVACY_VIEW: str = Field(default="unlisted")
+    # Optional domain to whitelist for embedding (tighter than unlisted+hash). Empty = any.
+    VIMEO_EMBED_DOMAIN: str | None = None
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -173,8 +186,16 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_video_storage_provider(cls, value: str) -> str:
         normalized = str(value or "cloudflare").strip().lower()
-        if normalized not in {"cloudflare", "supabase"}:
-            raise ValueError("PROCTORING_VIDEO_STORAGE_PROVIDER must be 'cloudflare' or 'supabase'")
+        if normalized not in {"cloudflare", "supabase", "vimeo"}:
+            raise ValueError("PROCTORING_VIDEO_STORAGE_PROVIDER must be 'cloudflare', 'supabase', or 'vimeo'")
+        return normalized
+
+    @field_validator("VIMEO_PRIVACY_VIEW")
+    @classmethod
+    def normalize_vimeo_privacy_view(cls, value: str) -> str:
+        normalized = str(value or "unlisted").strip().lower()
+        if normalized not in {"unlisted", "disable", "nobody", "anybody"}:
+            raise ValueError("VIMEO_PRIVACY_VIEW must be one of 'unlisted', 'disable', 'nobody', 'anybody'")
         return normalized
 
     @field_validator("PROCTORING_INFERENCE_MODE")

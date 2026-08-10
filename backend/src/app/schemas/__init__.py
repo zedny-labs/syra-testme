@@ -237,6 +237,7 @@ class QuestionBase(BaseModel):
     points: float = 1.0
     order: int = 0
     pool_id: Optional[UUID] = None
+    section_id: Optional[UUID] = None
     image_url: Optional[str] = Field(default=None, max_length=1024)
 
     @field_validator("text")
@@ -465,6 +466,7 @@ class AttemptRead(AttemptBase):
     precheck_passed_at: Optional[datetime] = None
     lighting_score: Optional[float] = None
     id_text: Optional[dict] = None
+    sections_finished: Optional[list] = None
     created_at: datetime
     updated_at: datetime
     test_title: Optional[str] = None
@@ -578,6 +580,47 @@ class QuestionPoolRead(QuestionPoolBase):
     id: UUID
     created_by_id: Optional[UUID] = None
     question_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExamSectionBase(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=1024)
+
+
+class ExamSectionCreate(ExamSectionBase):
+    pass
+
+
+class ExamSectionUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=1024)
+
+
+class ExamSectionFromPool(BaseModel):
+    pool_id: UUID
+    question_ids: list[UUID] = Field(min_length=1)
+    title: Optional[str] = Field(default=None, max_length=255)
+
+
+class ExamSectionReorderItem(BaseModel):
+    id: UUID
+    order: int = Field(ge=0)
+
+
+class ExamSectionReorder(BaseModel):
+    sections: list[ExamSectionReorderItem]
+
+
+class ExamSectionRead(ExamSectionBase):
+    id: UUID
+    exam_id: UUID
+    order: int
+    source_pool_id: Optional[UUID] = None
+    question_count: int = 0
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

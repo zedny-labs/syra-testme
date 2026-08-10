@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
 import ProctorOverlay from '../../components/ProctorOverlay/ProctorOverlay'
 import ViolationToast from '../../components/ViolationToast/ViolationToast'
 import useAuth from '../../hooks/useAuth'
 import { getAttempt, getAttemptAnswers, submitAnswer, submitAttempt } from '../../services/attempt.service'
-import { getTestQuestions, getTest } from '../../services/test.service'
+import { getTestQuestions, getTest, getLearnerSections, finishAttemptSection } from '../../services/test.service'
 import {
   proctoringPing,
   reportProctoringVideoUploadProgress,
@@ -15,6 +15,7 @@ import { normalizeQuestion, normalizeTest } from '../../utils/assessmentAdapters
 import { getJourneyRequirements, normalizeProctoringConfig } from '../../utils/proctoringRequirements'
 import { requestEntireScreenShare, ENTIRE_SCREEN_REQUIRED } from '../../utils/screenCapture'
 import { consumeScreenStream } from '../../utils/screenShareState'
+import { buildHub, sectionStatus } from './sectionNavigation'
 import useLanguage from '../../hooks/useLanguage'
 import styles from './Proctoring.module.scss'
 
@@ -232,6 +233,13 @@ export default function Proctoring() {
 
   const [exam, setExam] = useState(null)
   const [questions, setQuestions] = useState([])
+  const [sections, setSections] = useState([])
+  const [finishedSections, setFinishedSections] = useState([])
+  const [activeSectionId, setActiveSectionId] = useState(null) // null => show hub
+  // Latches true the first time the learner actually enters exam content. Proctoring
+  // (camera, screen share, WS, detectors) stays OFF until this flips, so the section
+  // picker is never proctored; once on, it stays on for the rest of the attempt.
+  const [proctoringStarted, setProctoringStarted] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState({})
   const [timeLeft, setTimeLeft] = useState(null)
@@ -257,6 +265,11 @@ export default function Proctoring() {
   const [cameraDark, setCameraDark] = useState(false)
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [autoSubmitState, setAutoSubmitState] = useState(null)
+  // True while the learner has left fullscreen during a fullscreen-enforced exam.
+  // Blocks/blurs the exam behind a modal until they click "Return to full screen"
+  // (a real click is a valid gesture for requestFullscreen(); the fullscreenchange
+  // event is not, which is why silent auto-re-entry never worked).
+  const [fullscreenLost, setFullscreenLost] = useState(false)
   const wsConnectedRef = useRef(false)
   const screenShareRequestRef = useRef(null)
   const screenShareEstablishedRef = useRef(false)
@@ -365,15 +378,18 @@ export default function Proctoring() {
           }
           return
         }
-        const [examRes, qRes, answersRes] = await Promise.allSettled([
+        const [examRes, qRes, answersRes, sectionsRes] = await Promise.allSettled([
           getTest(att.exam_id),
           getTestQuestions(att.exam_id),
           getAttemptAnswers(attemptId),
+          getLearnerSections(att.exam_id),
         ])
         if (cancelled) return
         if (examRes.status !== 'fulfilled' || qRes.status !== 'fulfilled') {
           throw new Error(t('proctor_load_failed'))
         }
+        setSections(sectionsRes.status === 'fulfilled' ? (sectionsRes.value.data || []) : [])
+        setFinishedSections(att.sections_finished || [])
         const ex = normalizeTest(examRes.value.data)
         if (cancelled) return
         setExam(ex)
@@ -432,8 +448,30 @@ export default function Proctoring() {
     }
   }, [proctorStatus])
 
+  // ── Section hub ───────────────────────────────────────────────────────────
+  // Groups questions into sections. When the exam has more than one real
+  // section, learners navigate a "hub" and take one section at a time. Legacy
+  // exams (0 or 1 section) fall through to the flat one-question-at-a-time flow.
+  const hub = useMemo(() => buildHub(sections, questions), [sections, questions])
+  const sequential = !!exam?.settings?.sequential_sections
+  const allowRevisit = exam?.settings?.allow_revisit_sections !== false
+  const hubEnabled = hub.length > 1
+  const activeSection = hubEnabled ? hub.find((s) => s.id === activeSectionId) : null
+  const sectionQuestions = hubEnabled ? (activeSection?.questions || []) : questions
+  const finishSection = useCallback(async () => {
+    try {
+      await flush()
+      const { data } = await finishAttemptSection(attemptId, activeSectionId)
+      setFinishedSections(data.sections_finished || [])
+      setActiveSectionId(null)   // only return to hub on success
+    } catch (e) {
+      setSubmitError(e.response?.data?.detail || e.message || t('proctor_load_failed'))
+    }
+  }, [attemptId, activeSectionId, flush, t])
+
   const journeyRequirements = getJourneyRequirements(proctorCfg)
-  const proctoringEnabled = Boolean(
+  // Whether the exam is configured for any proctoring at all.
+  const proctoringConfigured = Boolean(
     proctorCfg.tab_switch_detect
     || proctorCfg.fullscreen_enforce
     || proctorCfg.face_detection
@@ -448,8 +486,22 @@ export default function Proctoring() {
     || journeyRequirements.identityRequired
     || (Array.isArray(proctorCfg.alert_rules) && proctorCfg.alert_rules.length > 0)
   )
+  // Proctoring only becomes *active* once the learner has entered exam content
+  // (see proctoringStarted). This gates the overlay mount, every detection effect,
+  // and the screen-share gate, so the section picker stays unproctored.
+  const proctoringEnabled = proctoringConfigured && proctoringStarted
 
-  const screenShareRequired = Boolean(proctorCfg.screen_capture) && !screenShareGranted
+  // Latch proctoring ON the first time the learner is in real exam content:
+  //  - multi-section exams: when a section is entered (activeSectionId set)
+  //  - flat/single-section exams: as soon as loading finishes (no picker to gate on)
+  useEffect(() => {
+    if (proctoringStarted) return
+    if (activeSectionId != null) { setProctoringStarted(true); return }
+    if (!loading && !hubEnabled) setProctoringStarted(true)
+  }, [proctoringStarted, activeSectionId, loading, hubEnabled])
+
+  const screenShareRequired =
+    proctoringStarted && Boolean(proctorCfg.screen_capture) && !screenShareGranted
   const requiredRecordingSources = React.useMemo(() => {
     const sources = []
     if (journeyRequirements.cameraRequired) sources.push('camera')
@@ -1169,17 +1221,20 @@ export default function Proctoring() {
           emitProctoringNotice('fullscreen_ping', t('proctor_fullscreen_sync_error'), 'LOW')
         })
       }
-      if (!document.fullscreenElement) {
-        // When screen capture is active, do NOT call requestFullscreen() —
-        // it kills the screen share track. Warn the user but keep recording.
-        if (screenCaptureActive) {
-          sendBrowserViolation('FULLSCREEN_EXIT', 'MEDIUM', t('proctor_violation_fullscreen_recording'))
-          return
-        }
-        sendBrowserViolation('FULLSCREEN_EXIT', 'HIGH', t('proctor_violation_fullscreen_exam'))
-        document.documentElement.requestFullscreen?.().catch(() => {
-          emitProctoringNotice('fullscreen_restore', t('proctor_fullscreen_required'), 'MEDIUM', 'FULLSCREEN_REQUIRED', 5000)
-        })
+      if (document.fullscreenElement) {
+        // Back in fullscreen — release the block.
+        setFullscreenLost(false)
+      } else {
+        // Left fullscreen: log the violation and block/blur the exam behind the
+        // "Return to full screen" modal. We do NOT call requestFullscreen() here —
+        // the fullscreenchange event is not a user gesture, so it would fail; the
+        // modal button (a real click) performs the re-entry instead.
+        sendBrowserViolation(
+          'FULLSCREEN_EXIT',
+          screenCaptureActive ? 'MEDIUM' : 'HIGH',
+          screenCaptureActive ? t('proctor_violation_fullscreen_recording') : t('proctor_violation_fullscreen_exam'),
+        )
+        setFullscreenLost(true)
       }
     }
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -1803,7 +1858,23 @@ export default function Proctoring() {
 
   const currentQ = questions[currentIdx]
   const currentQType = currentQ?.question_type || 'TEXT'
-  const interactionLocked = submitting || Boolean(autoSubmitState)
+  const interactionLocked = submitting || Boolean(autoSubmitState) || fullscreenLost
+  // When the hub is active, navigation is scoped to the active section. We map
+  // between the flat `currentIdx` (index into the whole `questions` array, which
+  // answer-saving/timing rely on) and the position of that question WITHIN the
+  // active section (`inSectionIdx`). `sectionQuestions` is `questions` verbatim
+  // for legacy exams, so the flat flow is unchanged.
+  const inSectionIdx = hubEnabled ? Math.max(0, sectionQuestions.findIndex((q) => q.id === currentQ?.id)) : currentIdx
+  const isLastInSection = hubEnabled
+    ? inSectionIdx === sectionQuestions.length - 1
+    : currentIdx === questions.length - 1
+  const isFirstInSection = hubEnabled ? inSectionIdx <= 0 : currentIdx === 0
+  const goToSectionQuestion = (posInSection) => {
+    const q = sectionQuestions[posInSection]
+    if (!q) return
+    const flatIdx = questions.findIndex((item) => item.id === q.id)
+    if (flatIdx >= 0) setCurrentIdx(flatIdx)
+  }
   const answeredCount = questions.filter((question) => hasAnswerValue(answers[question.id])).length
   const unansweredCount = questions.length - answeredCount
   const progressPct = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0
@@ -1847,6 +1918,48 @@ export default function Proctoring() {
     </AnimatePresence>
   )
 
+  const handleReturnFullscreen = () => {
+    // A click IS a valid user gesture, so this re-entry actually succeeds.
+    document.documentElement.requestFullscreen?.()
+      .then(() => setFullscreenLost(false))
+      .catch(() => { /* fullscreenchange will clear it if it succeeds another way */ })
+  }
+
+  // Blocking overlay shown when the learner has left a fullscreen-enforced exam.
+  // The fixed, blurred backdrop covers (and blurs) the whole test and swallows
+  // clicks, so the exam can't be used until they return to full screen.
+  const fullscreenBlockNode = (
+    <AnimatePresence>
+      {fullscreenLost && (
+        <motion.div
+          className={styles.fullscreenBlock}
+          role="alertdialog"
+          aria-modal="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <motion.div
+            className={`${styles.fullscreenCard} glass`}
+            initial={{ scale: 0.96, y: 8 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <svg className={styles.fullscreenIcon} width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+            <h2 className={styles.fullscreenTitle}>{t('proctor_fullscreen_blocked_title')}</h2>
+            <p className={styles.fullscreenBody}>{t('proctor_fullscreen_blocked_body')}</p>
+            <button type="button" className={styles.fullscreenBtn} onClick={handleReturnFullscreen}>
+              {t('proctor_fullscreen_return_btn')}
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+
   // ── Screen share gate: block exam until learner grants screen share ──────
   if (screenShareRequired) {
     return (
@@ -1870,6 +1983,119 @@ export default function Proctoring() {
     )
   }
 
+  // ── Section hub ──────────────────────────────────────────────────────────
+  // Only shown for multi-section exams while no section is active. Legacy exams
+  // (hub.length <= 1) skip this entirely and fall through to the flat flow.
+  if (hubEnabled && activeSectionId == null) {
+    const sectionBadgeClass = (status) => {
+      if (status === 'finished') return styles.badgeConnected
+      if (status === 'locked') return styles.badgeDisconnected
+      return styles.badgePending
+    }
+    const allSectionsFinished = hub.every(
+      (_, i) => sectionStatus(hub, i, { finished: finishedSections, answers, sequential }) === 'finished'
+    )
+    return (
+      <div className={styles.page}>
+        <div
+          className={styles.pickerBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-label={exam?.title || t('proctor_test')}
+        >
+          <motion.div
+            className={`${styles.pickerModal} glass`}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className={styles.pickerHeader}>
+              <h2 className={styles.examTitle}>{exam?.title || t('proctor_test')}</h2>
+              <div className={styles.headerMeta}>
+                <span className={proctoringEnabled && proctorStatus === 'connected' ? styles.badgeConnected : styles.badgeDisconnected}>
+                  {t('proctor_proctoring')}: {proctoringEnabled ? proctorStatus : t('proctor_off')}
+                </span>
+                <div className={`${styles.timer} glass ${timeLeft !== null && timeLeft <= 300 ? styles.timerDanger : ''}`}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {formatTime(timeLeft)}
+                </div>
+              </div>
+            </div>
+
+            {submitError && <div className={styles.warningBanner}>{submitError}</div>}
+
+            {hub.map((section, i) => {
+              const status = sectionStatus(hub, i, { finished: finishedSections, answers, sequential })
+              const count = (section.questions || []).length
+              const disabled = interactionLocked || status === 'locked' || (status === 'finished' && !allowRevisit)
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`${styles.option} ${status === 'finished' ? styles.optionSelected : ''}`}
+                  disabled={disabled}
+                  onClick={() => {
+                    if (disabled) return
+                    setShowSubmitConfirm(false)
+                    setActiveSectionId(section.id)
+                    const first = (section.questions || [])[0]
+                    const flatIdx = first ? questions.findIndex((q) => q.id === first.id) : -1
+                    setCurrentIdx(flatIdx >= 0 ? flatIdx : 0)
+                  }}
+                >
+                  <span>{section.title || `${t('proctor_section')} ${i + 1}`} · {count} {count === 1 ? t('question') : t('questions')}</span>
+                  <span className={sectionBadgeClass(status)}>{t(`proctor_section_status_${status}`)}</span>
+                </button>
+              )
+            })}
+
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.btnSubmit}
+                onClick={handleSubmitRequest}
+                disabled={interactionLocked || (sequential && !allSectionsFinished)}
+              >
+                {submitting ? t('proctor_submitting') : t('proctor_submit_test')}
+              </button>
+            </div>
+
+            {showSubmitConfirm && (
+              <div className={styles.submitConfirm}>
+                <div className={styles.submitConfirmTitle}>{t('proctor_ready_to_submit')}</div>
+                <div className={styles.submitConfirmBody}>
+                  {unansweredCount > 0
+                    ? `${t('proctor_still_have')} ${unansweredCount} ${t('proctor_unanswered')} ${unansweredCount === 1 ? t('question') : t('questions')}.`
+                    : t('proctor_all_answered')}
+                  {' '}
+                  {t('proctor_once_submitted')}
+                </div>
+                {submitting && submitPhase && (
+                  <div className={styles.submitStatus}>
+                    {submitPhase === 'uploading' ? t('proctor_uploading_recordings') : submitPhase}
+                  </div>
+                )}
+                <div className={styles.submitConfirmActions}>
+                  <button type="button" className={styles.btnNav} onClick={() => setShowSubmitConfirm(false)} disabled={submitting}>
+                    {t('proctor_keep_reviewing')}
+                  </button>
+                  <button type="button" className={styles.btnSubmit} onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? (submitPhase.includes('Submitting') ? t('proctor_submitting') : t('saving')) : t('proctor_confirm_submit')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+        {proctorPane}
+        {toastNode}
+        {fullscreenBlockNode}
+      </div>
+    )
+  }
+
   if (!currentQ) {
     return (
       <div className={styles.page}>
@@ -1881,6 +2107,7 @@ export default function Proctoring() {
         </div>
         {proctorPane}
         {toastNode}
+        {fullscreenBlockNode}
       </div>
     )
   }
@@ -1944,6 +2171,28 @@ export default function Proctoring() {
           </div>
         </motion.div>
 
+        {hubEnabled && activeSection && (
+          <div className={styles.progressWrap}>
+            <div className={styles.progressHeader}>
+              <div className={styles.progressTitle}>
+                {t('proctor_section_header', {
+                  title: activeSection.title || t('proctor_section'),
+                  current: inSectionIdx + 1,
+                  total: sectionQuestions.length,
+                })}
+              </div>
+              <button
+                type="button"
+                className={styles.btnNav}
+                disabled={interactionLocked}
+                onClick={() => { if (!interactionLocked) { setShowSubmitConfirm(false); setActiveSectionId(null) } }}
+              >
+                {t('proctor_back_to_hub')}
+              </button>
+            </div>
+          </div>
+        )}
+
         {restoreWarning && <div className={styles.warningBanner}>{restoreWarning}</div>}
         {saveError && <div className={styles.warningBanner}>{saveError}</div>}
         {autoSubmitState && (
@@ -1988,29 +2237,33 @@ export default function Proctoring() {
           )}
         </div>
 
-        {/* Question Nav */}
+        {/* Question Nav — scoped to the active section (whole list for legacy exams) */}
         <div className={styles.questionNav}>
-          {questions.map((q, i) => (
-            <motion.button
-              key={q.id}
-              type="button"
-              className={`${styles.qNum} ${i === currentIdx ? styles.qNumActive : ''} ${hasAnswerValue(answers[q.id]) ? styles.qNumAnswered : ''}`}
-              onClick={() => {
-                if (interactionLocked) return
-                setShowSubmitConfirm(false)
-                setCurrentIdx(i)
-              }}
-              disabled={interactionLocked}
-              aria-label={String(i + 1)}
-              title={questionNavLabel(q, i)}
-              aria-current={i === currentIdx ? 'step' : undefined}
-              whileHover={{ y: -1, scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ duration: 0.12 }}
-            >
-              {i + 1}
-            </motion.button>
-          ))}
+          {sectionQuestions.map((q, i) => {
+            const flatIdx = hubEnabled ? questions.findIndex((item) => item.id === q.id) : i
+            const isActive = flatIdx === currentIdx
+            return (
+              <motion.button
+                key={q.id}
+                type="button"
+                className={`${styles.qNum} ${isActive ? styles.qNumActive : ''} ${hasAnswerValue(answers[q.id]) ? styles.qNumAnswered : ''}`}
+                onClick={() => {
+                  if (interactionLocked) return
+                  setShowSubmitConfirm(false)
+                  if (flatIdx >= 0) setCurrentIdx(flatIdx)
+                }}
+                disabled={interactionLocked}
+                aria-label={String(i + 1)}
+                title={questionNavLabel(q, flatIdx)}
+                aria-current={isActive ? 'step' : undefined}
+                whileHover={{ y: -1, scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.12 }}
+              >
+                {i + 1}
+              </motion.button>
+            )
+          })}
         </div>
 
         {/* Question Card */}
@@ -2023,7 +2276,7 @@ export default function Proctoring() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.22 }}
           >
-            <div className={styles.qLabel}>{t('question')} {currentIdx + 1} {t('of')} {questions.length}</div>
+            <div className={styles.qLabel}>{t('question')} {hubEnabled ? inSectionIdx + 1 : currentIdx + 1} {t('of')} {hubEnabled ? sectionQuestions.length : questions.length}</div>
             {currentQ.image_url && (
               <img className={styles.qImage} src={currentQ.image_url} alt={t('admin_questions_image_alt')} />
             )}
@@ -2128,17 +2381,44 @@ export default function Proctoring() {
               <motion.button
                 type="button"
                 className={styles.btnNav}
-                disabled={currentIdx === 0 || interactionLocked}
+                disabled={isFirstInSection || interactionLocked}
                 onClick={() => {
                   if (interactionLocked) return
                   setShowSubmitConfirm(false)
-                  setCurrentIdx(i => i - 1)
+                  if (hubEnabled) goToSectionQuestion(inSectionIdx - 1)
+                  else setCurrentIdx(i => i - 1)
                 }}
                 whileTap={{ scale: 0.97 }}
               >
                 {t('proctor_previous_question')}
               </motion.button>
-              {currentIdx < questions.length - 1 ? (
+              {hubEnabled ? (
+                isLastInSection ? (
+                  <motion.button
+                    type="button"
+                    className={styles.btnSubmit}
+                    onClick={() => { if (!interactionLocked) finishSection() }}
+                    disabled={interactionLocked}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    {t('proctor_finish_section')}
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="button"
+                    className={styles.btnNav}
+                    onClick={() => {
+                      if (interactionLocked) return
+                      setShowSubmitConfirm(false)
+                      goToSectionQuestion(inSectionIdx + 1)
+                    }}
+                    disabled={interactionLocked}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    {t('proctor_next_question')}
+                  </motion.button>
+                )
+              ) : currentIdx < questions.length - 1 ? (
                 <motion.button
                   type="button"
                   className={styles.btnNav}
@@ -2171,6 +2451,7 @@ export default function Proctoring() {
 
       {proctorPane}
       {toastNode}
+      {fullscreenBlockNode}
     </div>
   )
 }

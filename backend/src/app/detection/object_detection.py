@@ -8,6 +8,8 @@ import time
 import cv2
 import numpy as np
 
+from ._yolo_load import load_yolo, resolve_weights
+
 try:
     from ultralytics import YOLO
 except Exception:  # pragma: no cover - optional dependency in lightweight envs
@@ -72,16 +74,16 @@ class ObjectDetector:
             if _model_load_failed and (time.monotonic() - _model_load_attempted_at) < _MODEL_RETRY_SEC:
                 return None
             try:
-                resolved = os.path.abspath(OBJECT_MODEL_PATH)
+                resolved = resolve_weights(OBJECT_MODEL_PATH, "YOLO_OBJECT_MODEL")
                 if not os.path.isfile(resolved):
                     logger.error(
-                        "YOLO object model file not found at %s (resolved: %s) — object detection disabled",
-                        OBJECT_MODEL_PATH, resolved,
+                        "YOLO object model file not found (looked up %r) — object detection disabled",
+                        OBJECT_MODEL_PATH,
                     )
                     _model_load_failed = True
                     _model_load_attempted_at = time.monotonic()
                     return None
-                loaded = YOLO(resolved)
+                loaded = load_yolo(resolved)
                 available_labels = {str(v).strip().lower() for v in loaded.names.values()} if hasattr(loaded, "names") else set()
                 missing = FORBIDDEN_LABELS - available_labels
                 if missing:
@@ -98,7 +100,10 @@ class ObjectDetector:
                 _model = loaded
                 _model_load_failed = False
             except Exception as exc:
-                logger.error("Failed to load YOLO object model from %s: %s", OBJECT_MODEL_PATH, exc)
+                logger.error(
+                    "Failed to load YOLO object model (%s) — forbidden-object detection "
+                    "disabled: %s", OBJECT_MODEL_PATH, exc, exc_info=True,
+                )
                 _model_load_failed = True
                 _model_load_attempted_at = time.monotonic()
                 return None

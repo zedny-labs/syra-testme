@@ -1,0 +1,156 @@
+name: Deploy Dev to VM
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: dev-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Dev (health-gated, SHA-verified, auto-rollback)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          GIT_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          password: ${{ secrets.VM_PASSWORD }}
+          port: 22
+          command_timeout: 25m
+          envs: GIT_SHA
+          script: |
+            set -Eeuo pipefail
+            cd /opt/syra-testme-dev
+            VERSION_URL="https://dev-varexam.zedny.ai/api/version"
+            log(){ echo ">>> $*"; }
+
+            COMPOSE="docker compose -f docker-compose.yml -f docker-compose.local-db.yml"
+            diagnostics(){
+              echo ">>> Docker diagnostics..."
+              $COMPOSE ps -a || true
+              $COMPOSE logs --tail 200 backend || true
+              $COMPOSE logs --tail 60 frontend || true
+            }
+
+            # ---- deploy-time env (constant across deploy + rollback) --------------
+            PG_PW='${{ secrets.SYRA_DEV_POSTGRES_PASSWORD }}'
+            [ -z "$PG_PW" ] && PG_PW="syra-dev-local-password"
+            export SYRA_POSTGRES_PASSWORD="$PG_PW"
+            export POSTGRES_PASSWORD="$PG_PW"
+            export SYRA_DATABASE_URL="postgresql+psycopg://syra:${PG_PW}@db:5432/syra_lms"
+            export SYRA_DATABASE_MIGRATION_URL="$SYRA_DATABASE_URL"
+            export SYRA_APP_DATABASE_URL="$SYRA_DATABASE_URL"
+            export SYRA_FRONTEND_PUBLISH="127.0.0.1:8081:80"
+            export SYRA_BACKEND_PUBLISH="127.0.0.1:8001:8000"
+            export SYRA_LOCAL_BACKEND_PORT=8001
+            export SYRA_FRONTEND_URL="https://dev-varexam.zedny.ai"
+            export SYRA_BACKEND_URL="https://dev-varexam.zedny.ai/api"
+            export SYRA_APP_FRONTEND_URL="https://dev-varexam.zedny.ai"
+            export SYRA_APP_BACKEND_URL="https://dev-varexam.zedny.ai/api"
+            export SYRA_AUTO_APPLY_MIGRATIONS=false
+            export SYRA_SEED_DEMO_DATA=0
+            export SYRA_SEED_LOGIN_USERS=1
+            export SYRA_DB_MIGRATION_TIMEOUT_SECONDS=240
+            export SYRA_BACKEND_HEALTH_TIMEOUT_SECONDS=180
+            export SYRA_FRONTEND_HEALTH_TIMEOUT_SECONDS=60
+
+            # ---- seed JWT/BREVO + the BUILD_SHA that /api/version will report -----
+            seed_env(){
+              python3 - "$1" <<'PY'
+            import json, sys
+            from pathlib import Path
+            build_sha = sys.argv[1]
+            repo_root = Path("/opt/syra-testme-dev")
+            targets = (repo_root / ".env", repo_root / "backend" / ".env.docker")
+            vimeo_token = json.loads(r'''${{ toJSON(secrets.SYRA_VIMEO_ACCESS_TOKEN) }}''')
+            updates = {
+                "JWT_SECRET": json.loads(r'''${{ toJSON(secrets.SYRA_JWT_SECRET) }}'''),
+                "BREVO_API_KEY": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_API_KEY) }}'''),
+                "BREVO_SENDER_EMAIL": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_EMAIL) }}'''),
+                "BREVO_SENDER_NAME": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_NAME) }}'''),
+                "BUILD_SHA": build_sha,
+                "VIMEO_ACCESS_TOKEN": vimeo_token,
+            }
+            # Only switch proctoring-video storage to Vimeo when a token is actually configured.
+            if vimeo_token:
+                updates["PROCTORING_VIDEO_STORAGE_PROVIDER"] = "vimeo"
+            def upsert(path, values):
+                lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+                pending = {k: v for k, v in values.items() if v}
+                if not pending:
+                    return
+                seen, out = set(), []
+                for line in lines:
+                    key, sep, _ = line.partition("=")
+                    if sep and key in pending:
+                        out.append(f"{key}={pending[key]}"); seen.add(key)
+                    else:
+                        out.append(line)
+                for k, v in pending.items():
+                    if k not in seen:
+                        out.append(f"{k}={v}")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(out) + "\n", encoding="utf-8")
+            for t in targets:
+                upsert(t, updates)
+            PY
+            }
+
+            # ---- build + deploy the currently checked-out commit -----------------
+            run_deploy(){  # $1 = build sha to bake into /api/version
+              seed_env "$1"
+              if ! command -v flock >/dev/null 2>&1; then echo "::error::flock required on VM"; return 1; fi
+              flock -n -E 75 /tmp/syra-testme-dev-deploy.lock bash scripts/setup-linux.sh --local
+            }
+
+            # ---- SHA verify: running /api/version == expected commit -------------
+            verify_sha(){  # $1 = expected sha
+              local expected="$1" running body code
+              body="$(curl -sS --max-time 10 -w '#HTTP:%{http_code}' "$VERSION_URL" 2>&1 || true)"
+              code="${body##*#HTTP:}"; body="${body%#HTTP:*}"
+              running="$(printf '%s' "$body" | sed -n 's/.*"sha"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+              log "SHA verify: http=$code running=[${running:-<none>}] expected=$expected raw=[$body]"
+              [ -n "$running" ] && [ "$running" = "$expected" ]
+            }
+
+            # ---- fetch new commit, remembering the current one for rollback ------
+            git remote remove origin || true
+            git remote add origin "https://github.com/zedny-labs/syra-testme.git"
+            git fetch origin dev
+            PREV_SHA="$(git rev-parse HEAD)"
+            git reset --hard origin/dev
+            NEW_SHA="$(git rev-parse HEAD)"
+            log "Deploying $NEW_SHA (rollback target: $PREV_SHA)"
+
+            # ---- deploy, health-gate (setup-linux.sh) + SHA verify ---------------
+            OK=1
+            run_deploy "$NEW_SHA" || OK=0
+            if [ "$OK" = "1" ]; then verify_sha "$NEW_SHA" || { log "SHA verification FAILED"; OK=0; }; fi
+
+            # ---- auto-rollback on any failure ------------------------------------
+            if [ "$OK" != "1" ]; then
+              log "Deploy FAILED — rolling back"
+              diagnostics
+              if [ "$PREV_SHA" != "$NEW_SHA" ]; then
+                git reset --hard "$PREV_SHA"
+                if run_deploy "$PREV_SHA" && verify_sha "$PREV_SHA"; then
+                  log "Rolled back to $PREV_SHA OK (previous version healthy)."
+                else
+                  log "WARNING: rollback to $PREV_SHA did not verify — manual attention required."
+                fi
+              else
+                log "No previous commit to roll back to (first hardened deploy)."
+              fi
+              exit 1
+            fi
+
+            log "Dev deploy verified: healthy + SHA $NEW_SHA -> https://dev-varexam.zedny.ai"

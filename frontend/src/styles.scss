@@ -123,7 +123,12 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
-  scrollbar-gutter: stable;
+  /* NOTE: `scrollbar-gutter: stable` was removed here (it reserved a phantom
+     right-side gutter under macOS overlay scrollbars, shifting content sideways).
+     Do NOT set `overflow-x` on <html>: a non-visible overflow on BOTH <html> and
+     <body> turns them into two nested scroll containers, which hijacks mouse-wheel
+     scrolling (page only moves by dragging the scrollbar). Horizontal overflow is
+     already clamped by `body { overflow-x: hidden }` — that is the single scroller. */
   scroll-padding-top: calc(var(--navbar-height) + 1rem);
   background-color: var(--color-bg);
 }
@@ -383,6 +388,7 @@ textarea:not([class]):disabled {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0; /* allow grid child to shrink instead of forcing horizontal overflow */
   overflow-x: hidden;
   position: relative;
   z-index: 1;
@@ -463,21 +469,19 @@ textarea:not([class]):disabled {
   outline-offset: 2px;
 }
 
-/* ---------- Responsive: collapse sidebar below 900px ---------- */
-/* Breakpoints: 1100px tablet-lg | 900px tablet | 768px tablet-sm | 480px phone | 360px phone-sm */
-@media (max-width: 900px) {
+/* ---------- Responsive: sidebar becomes a drawer below lg (1024px) ---------- */
+/* Canonical breakpoints (src/styles/_breakpoints.scss): xs 480 | sm 640 | md 768 | lg 1024 | xl 1280 */
+@include bp.below(lg) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
   .app-shell__content {
     padding: 1rem;
   }
 }
 
-@media (max-width: 640px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
+@include bp.below(xs) {
   .app-shell__content {
     padding: 0.75rem;
   }

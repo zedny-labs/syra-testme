@@ -11,12 +11,14 @@ import logging
 import os
 import threading
 
+from ._yolo_load import load_yolo, resolve_weights
+
 try:
     from ultralytics import YOLO
 except Exception:  # pragma: no cover
     YOLO = None
 
-# Override via env var; falls back to filename (works if file is in cwd or YOLO cache)
+# Override via env var; otherwise resolved to an absolute path independent of CWD.
 FACE_MODEL_PATH = os.environ.get("YOLO_FACE_MODEL", "yolov8n-face.pt")
 _model = None
 _model_load_failed = False
@@ -38,10 +40,14 @@ def get_face_model():
         if _model_load_failed:
             return None
         try:
-            _model = YOLO(FACE_MODEL_PATH)
-            logger.info("YOLO face model loaded from %s", FACE_MODEL_PATH)
+            resolved = resolve_weights(FACE_MODEL_PATH, "YOLO_FACE_MODEL")
+            _model = load_yolo(resolved)
+            logger.info("YOLO face model loaded from %s", resolved)
         except Exception as exc:
-            logger.warning("Failed to load YOLO face model from %s: %s", FACE_MODEL_PATH, exc)
+            logger.error(
+                "Failed to load YOLO face model (%s) — face + multi-face detection "
+                "disabled: %s", FACE_MODEL_PATH, exc, exc_info=True,
+            )
             _model_load_failed = True
             return None
     return _model

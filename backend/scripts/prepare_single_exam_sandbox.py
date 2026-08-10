@@ -88,7 +88,9 @@ QUESTION_BANK = [
 ]
 
 
-def ensure_user(db: Session, *, email: str, password: str, name: str, user_id: str, role: RoleEnum) -> User:
+def ensure_user(
+    db: Session, *, email: str, password: str, name: str, user_id: str, role: RoleEnum, created_by_id=None
+) -> User:
     user = db.scalar(select(User).where(User.email == email))
     if user is None:
         user = User(
@@ -97,6 +99,7 @@ def ensure_user(db: Session, *, email: str, password: str, name: str, user_id: s
             user_id=user_id,
             role=role,
             hashed_password=hash_password(password),
+            created_by_id=created_by_id,
         )
         db.add(user)
         db.flush()
@@ -106,32 +109,45 @@ def ensure_user(db: Session, *, email: str, password: str, name: str, user_id: s
     user.user_id = user_id
     user.role = role
     user.hashed_password = hash_password(password)
+    if created_by_id is not None and getattr(user, "created_by_id", None) is None:
+        user.created_by_id = created_by_id
     if hasattr(user, "is_active"):
         user.is_active = True
     db.flush()
     return user
 
 
-def ensure_category(db: Session) -> Category:
+def ensure_category(db: Session, owner_id) -> Category:
     category = db.scalar(
-        select(Category).where(Category.name == "Sandbox Exams", Category.type == CategoryType.TEST)
+        select(Category).where(
+            Category.name == "Sandbox Exams",
+            Category.type == CategoryType.TEST,
+            Category.created_by_id == owner_id,
+        )
     )
     if category is None:
         category = Category(
             name="Sandbox Exams",
             type=CategoryType.TEST,
             description="Local single-exam sandbox for full proctoring validation.",
+            created_by_id=owner_id,
         )
         db.add(category)
         db.flush()
     return category
 
 
-def ensure_grading_scale(db: Session) -> GradingScale:
-    scale = db.scalar(select(GradingScale).where(GradingScale.name == "Sandbox Pass/Fail"))
+def ensure_grading_scale(db: Session, owner_id) -> GradingScale:
+    scale = db.scalar(
+        select(GradingScale).where(
+            GradingScale.name == "Sandbox Pass/Fail",
+            GradingScale.created_by_id == owner_id,
+        )
+    )
     if scale is None:
         scale = GradingScale(
             name="Sandbox Pass/Fail",
+            created_by_id=owner_id,
             labels=[
                 {"label": "Pass", "min_score": 60, "max_score": 100},
                 {"label": "Needs Review", "min_score": 0, "max_score": 59.99},
@@ -304,9 +320,10 @@ def prepare() -> None:
             name=SANDBOX_LEARNER_NAME,
             user_id=SANDBOX_LEARNER_USER_ID,
             role=RoleEnum.LEARNER,
+            created_by_id=admin.id,
         )
-        category = ensure_category(db)
-        scale = ensure_grading_scale(db)
+        category = ensure_category(db, admin.id)
+        scale = ensure_grading_scale(db, admin.id)
         _, node = ensure_course_and_node(db, owner_id=admin.id)
 
         exam = db.scalar(select(Exam).where(Exam.node_id == node.id, Exam.title == EXAM_TITLE))
