@@ -124,7 +124,7 @@ export default function AdminAttemptVideos() {
   const { attemptId } = useParams()
   const [searchParams] = useSearchParams()
   const examIdFilter = searchParams.get('exam_id')
-  const inSupervisionMode = !attemptId && Boolean(examIdFilter)
+  const inSupervisionMode = !attemptId
   const navigate = useNavigate()
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
@@ -167,7 +167,7 @@ export default function AdminAttemptVideos() {
     const controller = new AbortController()
     setAttemptsLoading(true)
     setError('')
-    adminApi.attempts({ exam_id: examIdFilter, skip: 0, limit: 200 }, { signal: controller.signal })
+    adminApi.attempts({ ...(examIdFilter ? { exam_id: examIdFilter } : {}), skip: 0, limit: 200 }, { signal: controller.signal })
       .then(({ data }) => {
         if (controller.signal.aborted) return
         const filtered = readPaginatedItems(data)

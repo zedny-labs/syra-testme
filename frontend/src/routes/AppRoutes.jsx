@@ -393,6 +393,7 @@ const router = createBrowserRouter(
     { path: '/admin/tests/:id', element: <LegacyTestDetailRedirect /> },
     { path: '/admin/new', element: <Navigate to="/admin/tests/new" replace /> },
     { path: '/admin/schedules', element: <Navigate to="/admin/sessions" replace /> },
+    { path: '/admin/testing-sessions', element: <Navigate to="/admin/sessions" replace /> },
     { path: '/admin/roles-permissions', element: <Navigate to="/admin/roles" replace /> },
 
     {
