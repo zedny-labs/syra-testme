@@ -90,6 +90,7 @@ export default function AdminExams() {
   const [reportBusyId, setReportBusyId] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState('')
   const [openMenuId, setOpenMenuId] = useState('')
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
   const abortRef = useRef(null)
 
   const load = async ({
@@ -138,6 +139,11 @@ export default function AdminExams() {
 
   useEffect(() => {
     if (!openMenuId) return undefined
+    const closeMenu = () => setOpenMenuId('')
+    const handleScroll = (event) => {
+      if (event.target?.closest?.('[data-admin-test-menu]')) return
+      setOpenMenuId('')
+    }
     const handlePointerDown = (event) => {
       if (event.target.closest('[data-admin-test-menu]')) return
       setOpenMenuId('')
@@ -147,11 +153,28 @@ export default function AdminExams() {
     }
     document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('resize', closeMenu)
+    window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('resize', closeMenu)
+      window.removeEventListener('scroll', handleScroll, true)
     }
   }, [openMenuId])
+
+  const toggleMenu = (testId, button) => {
+    setDeleteConfirmId((current) => (current === testId ? current : ''))
+    setOpenMenuId((current) => {
+      if (current === testId) return ''
+      const rect = button.getBoundingClientRect()
+      setMenuPosition({
+        top: Math.round(rect.bottom + 6),
+        right: Math.max(8, Math.round(window.innerWidth - rect.right)),
+      })
+      return testId
+    })
+  }
 
   const saveColumns = () => {
     localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(columnDraft))
@@ -525,15 +548,19 @@ export default function AdminExams() {
                           aria-label={`${t('admin_exams_more_actions_for')} ${test.name}`}
                           aria-haspopup="true"
                           aria-expanded={openMenuId === test.id}
-                          onClick={() => {
-                            setDeleteConfirmId((current) => (current === test.id ? current : ''))
-                            setOpenMenuId((current) => (current === test.id ? '' : test.id))
-                          }}
+                          onClick={(event) => toggleMenu(test.id, event.currentTarget)}
                         >
                           {t('actions')}
                         </button>
                         {openMenuId === test.id && (
-                          <div className={styles.menu}>
+                          <div
+                            className={styles.menu}
+                            data-admin-test-menu
+                            style={{
+                              top: `${menuPosition.top}px`,
+                              right: `${menuPosition.right}px`,
+                            }}
+                          >
                             <button type="button" className={styles.menuItem} onClick={() => { setOpenMenuId(''); navigate(`/admin/tests/${test.id}/manage?tab=sessions`) }}>
                               {t('admin_exams_col_testing_sessions')}
                             </button>
