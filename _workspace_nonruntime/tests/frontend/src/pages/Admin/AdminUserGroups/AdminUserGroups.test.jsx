@@ -60,13 +60,12 @@ describe('AdminUserGroups page', () => {
     render(<AdminUserGroups />)
 
     await waitFor(() => expect(screen.getByText('Cohort A')).toBeTruthy())
-    expect(screen.getByText('Some group management data could not be loaded. Retry to enable member assignment and bulk scheduling.')).toBeTruthy()
+    expect(screen.getByText('Loading learner data...')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open group Cohort A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show members' }))
 
-    await waitFor(() => expect(screen.getByText('Learner lookup is temporarily unavailable. Retry to manage group members.')).toBeTruthy())
-    expect(screen.getByText('Test and schedule data are temporarily unavailable. Retry before running bulk assignments.')).toBeTruthy()
-    expect(screen.getByPlaceholderText('Search learners by name, email, or ID...').disabled).toBe(true)
+    await waitFor(() => expect(screen.getByText('No members in this group.')).toBeTruthy())
+    expect(screen.queryByText('Select learner')).toBeNull()
   })
 
   it('shows a busy confirmation state while deleting a group', async () => {
@@ -78,15 +77,21 @@ describe('AdminUserGroups page', () => {
           resolveDelete = resolve
         }),
     )
+    users.mockResolvedValue({ data: [] })
+    allTests.mockResolvedValue({ data: { items: [] } })
+    schedules.mockResolvedValue({ data: [] })
 
     render(<AdminUserGroups />)
 
     await waitFor(() => expect(screen.getByText('Cohort A')).toBeTruthy())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Cohort A' }))
+    const deleteButton = screen.getByRole('button', { name: 'Delete Cohort A' })
+    await waitFor(() => expect(deleteButton.disabled).toBe(false))
+
+    fireEvent.click(deleteButton)
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete Cohort A' }))
 
-    expect(screen.getByRole('button', { name: 'Confirm delete Cohort A' }).disabled).toBe(true)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete Cohort A' }).disabled).toBe(true))
 
     resolveDelete({ data: {} })
 

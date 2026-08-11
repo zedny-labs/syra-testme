@@ -11,6 +11,8 @@ const submitAnswerMock = vi.fn()
 const submitAttemptMock = vi.fn()
 const getTestQuestionsMock = vi.fn()
 const getTestMock = vi.fn()
+const getLearnerSectionsMock = vi.fn()
+const finishAttemptSectionMock = vi.fn()
 const consumeScreenStreamMock = vi.fn()
 const proctoringPingMock = vi.fn()
 const getProctoringVideoJobStatusMock = vi.fn()
@@ -80,6 +82,8 @@ vi.mock('../../services/attempt.service', () => ({
 vi.mock('../../services/test.service', () => ({
   getTest: (...args) => getTestMock(...args),
   getTestQuestions: (...args) => getTestQuestionsMock(...args),
+  getLearnerSections: (...args) => getLearnerSectionsMock(...args),
+  finishAttemptSection: (...args) => finishAttemptSectionMock(...args),
 }))
 
 vi.mock('../../services/proctoring.service', () => ({
@@ -157,6 +161,8 @@ describe('Proctoring page', () => {
         },
       ],
     })
+    getLearnerSectionsMock.mockResolvedValue({ data: [] })
+    finishAttemptSectionMock.mockResolvedValue({ data: {} })
     getAttemptAnswersMock.mockResolvedValue({ data: [] })
   })
 
@@ -201,7 +207,7 @@ describe('Proctoring page', () => {
     renderPage()
 
     await waitFor(() => expect(screen.getByText('No questions available for this attempt.')).toBeTruthy())
-    expect(screen.getByRole('button', { name: 'Back to attempts list' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Back to attempts' })).toBeTruthy()
   })
 
   it('shows progress details and a submit confirmation before final submission', async () => {
@@ -233,9 +239,7 @@ describe('Proctoring page', () => {
       data: {
         id: 'exam-1',
         title: 'Physics Final',
-        proctoring_config: {
-          face_detection: true,
-        },
+        proctoring_config: {},
       },
     })
     consumeScreenStreamMock.mockReturnValue({
@@ -340,8 +344,8 @@ describe('Proctoring page', () => {
       await waitFor(() => expect(screen.getByText('Ready to submit?')).toBeTruthy())
       fireEvent.click(screen.getByRole('button', { name: 'Confirm Submit' }))
 
-      await waitFor(() => expect(screen.getByText('Exam Submitted')).toBeTruthy())
-      expect(screen.getByText('Uploading your exam recordings. Please do not close this page.')).toBeTruthy()
+      await waitFor(() => expect(screen.getByText('Finalizing your exam...')).toBeTruthy())
+      expect(screen.getByText('Uploading proctoring recordings. Please do not close this page.')).toBeTruthy()
       expect(screen.queryByRole('button', { name: /skip upload/i })).toBeNull()
       expect(screen.queryByText('Attempt Result')).toBeNull()
     } finally {

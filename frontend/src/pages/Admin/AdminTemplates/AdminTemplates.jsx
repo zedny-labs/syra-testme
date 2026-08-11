@@ -286,7 +286,7 @@ export default function AdminTemplates() {
             const templateLabel = template.name || t('admin_templates_this_template')
 
             return (
-              <div key={template.id} className={styles.card}>
+              <div key={template.id} className={styles.card} data-template-name={template.name || ''}>
                 {!canManageTemplate(template) && (
                   <div className={styles.readOnlyNote}>{t('admin_templates_read_only_notice')}</div>
                 )}

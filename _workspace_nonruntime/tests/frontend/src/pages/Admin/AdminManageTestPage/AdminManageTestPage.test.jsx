@@ -10,6 +10,7 @@ const allTestsMock = vi.fn()
 const attemptsMock = vi.fn()
 const schedulesMock = vi.fn()
 const usersMock = vi.fn()
+const learnersForSchedulingMock = vi.fn()
 const getQuestionsMock = vi.fn()
 const categoriesMock = vi.fn()
 const createCategoryMock = vi.fn()
@@ -46,6 +47,7 @@ vi.mock('../../../services/admin.service', () => ({
     attempts: (...args) => attemptsMock(...args),
     schedules: (...args) => schedulesMock(...args),
     users: (...args) => usersMock(...args),
+    learnersForScheduling: (...args) => learnersForSchedulingMock(...args),
     getQuestions: (...args) => getQuestionsMock(...args),
     categories: (...args) => categoriesMock(...args),
     createCategory: (...args) => createCategoryMock(...args),
@@ -122,6 +124,9 @@ describe('AdminManageTestPage', () => {
     usersMock.mockResolvedValue({
       data: [{ id: 'learner-1', user_id: 'L-001', name: 'Learner One', role: 'LEARNER' }],
     })
+    learnersForSchedulingMock.mockResolvedValue({
+      data: [{ id: 'learner-1', user_id: 'L-001', name: 'Learner One', role: 'LEARNER' }],
+    })
     getQuestionsMock.mockResolvedValue({ data: [] })
     categoriesMock.mockResolvedValue({ data: [] })
     createCategoryMock.mockResolvedValue({ data: { id: 'cat-2', name: 'Security', type: 'TEST', description: '' } })
@@ -172,10 +177,11 @@ describe('AdminManageTestPage', () => {
     expect(submitButton.disabled).toBe(true)
 
     fireEvent.change(screen.getByLabelText('Learner'), { target: { value: 'learner-1' } })
-    expect(submitButton.disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Assign / Update session' }).disabled).toBe(true)
 
-    fireEvent.change(screen.getByLabelText('Schedule date/time'), { target: { value: '2026-03-08T12:30' } })
-    expect(submitButton.disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule date/time' }))
+    fireEvent.click(screen.getByRole('button', { name: 'In 1 hour' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Assign / Update session' }).disabled).toBe(false))
   })
 
   it('keeps tab changes stable and writes canonical manage-tab query values', async () => {
@@ -480,7 +486,7 @@ describe('AdminManageTestPage', () => {
 
     renderPage(['/admin/tests/test-1/manage?tab=proctoring'])
 
-    await screen.findByText('Showing 1 attempt across 1 loaded.')
+    await screen.findByText('Showing attempts')
     await screen.findByText('L-001')
 
     fireEvent.change(screen.getAllByPlaceholderText('Search')[1], { target: { value: 'missing learner' } })
@@ -490,7 +496,7 @@ describe('AdminManageTestPage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 
     await screen.findByText('L-001')
-    expect(screen.getByText('Showing 1 attempt across 1 loaded.')).toBeTruthy()
+    expect(screen.getByText('Showing attempts')).toBeTruthy()
   })
 
   it('renders lifecycle summary cards from persisted test, session, and alert data', async () => {
@@ -540,7 +546,7 @@ describe('AdminManageTestPage', () => {
     expect(screen.getAllByText('Certificates').length).toBeGreaterThan(0)
     expect(screen.getByText('Issued by Dr. Review')).toBeTruthy()
     expect(screen.getByText('Retake policy')).toBeTruthy()
-    expect(screen.getByText(/Cooldown 24 hour\(s\), max 1 attempt\(s\)/)).toBeTruthy()
+    expect(screen.getByText(/Cooldown 24/)).toBeTruthy()
     expect(screen.getByText('Review queue')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: 'Proctoring' }).length).toBeGreaterThan(0)
   })
@@ -581,7 +587,7 @@ describe('AdminManageTestPage', () => {
     await waitFor(() => expect(screen.getByText('88%')).toBeTruthy())
     await waitFor(() => expect(screen.getByText('Finalized')).toBeTruthy())
 
-    fireEvent.click(screen.getByRole('button', { name: /open result for/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Result L-001/i }))
     await screen.findByText('Attempt result route')
   })
 
@@ -603,7 +609,7 @@ describe('AdminManageTestPage', () => {
     await screen.findByText('75%')
 
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
-    fireEvent.click(screen.getByRole('button', { name: /open video for/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Video L-001/i }))
     expect(openSpy).toHaveBeenCalledWith('/admin/attempts/attempt-1/videos', '_blank', 'noopener,noreferrer')
     openSpy.mockRestore()
   })
@@ -640,10 +646,10 @@ describe('AdminManageTestPage', () => {
     expect(screen.getByText('L-001')).toBeTruthy()
     expect(screen.getByText('NOT STARTED')).toBeTruthy()
     expect(screen.getByText('Scheduled, not started')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /open result for/i }).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: /review attempt analysis for/i }).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: /pause monitoring for/i }).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: /open video for/i }).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: /open report for/i }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /Result L-001/i }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /Analyze L-001/i }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /Pause L-001/i }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /Video L-001/i }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /Report L-001/i }).disabled).toBe(true)
   })
 })

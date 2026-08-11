@@ -98,7 +98,7 @@ describe('AdminTestingSessions page', () => {
       target: { value: 'chemistry' },
     })
 
-    await waitFor(() => expect(screen.getByText('No sessions match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No sessions match your search')).toBeTruthy())
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1))
 
     await waitFor(() => expect(screen.getByText('Physics Final')).toBeTruthy())

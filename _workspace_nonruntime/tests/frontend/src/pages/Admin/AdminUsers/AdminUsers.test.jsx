@@ -104,7 +104,7 @@ describe('AdminUsers permission modes', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => expect(screen.getByText('offline')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Action failed.')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
@@ -123,13 +123,14 @@ describe('AdminUsers permission modes', () => {
 
     await waitFor(() => expect(screen.getAllByText('Learner One').length).toBeGreaterThan(0))
 
-    fireEvent.change(screen.getAllByPlaceholderText('Search by name, email, ID...').at(-1), {
+    fireEvent.change(screen.getAllByPlaceholderText('Search by name, email, or ID...').at(-1), {
       target: { value: 'missing-user' },
     })
 
-    await waitFor(() => expect(screen.getByText('No users match the current filters. Clear the filters to see the full directory again.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No matches found')).toBeTruthy())
+    expect(screen.getByText('Try adjusting your search or filters.')).toBeTruthy()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear Filters' }).at(-1))
 
     await waitFor(() => expect(screen.getAllByText('Learner One').length).toBeGreaterThan(0))
   })

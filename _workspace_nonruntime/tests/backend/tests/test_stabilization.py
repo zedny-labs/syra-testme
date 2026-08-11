@@ -846,9 +846,9 @@ def test_serialize_pool_includes_question_count():
 
         def scalars(self, _query):
             self.calls += 1
-            if self.calls == 1:
-                return DummyScalarResult([question])
-            return DummyScalarResult([])
+            if self.calls in {1, 2}:
+                return DummyScalarResult([])
+            return DummyScalarResult([question])
 
     serialized = question_pools_routes._serialize_pool(pool, DummySession())
 
@@ -1123,7 +1123,7 @@ def test_list_learners_for_scheduling_allows_instructor_with_assign_schedules(mo
         def scalars(self, _query):
             return DummyScalarResult([learner])
 
-    current_user = SimpleNamespace(role=RoleEnum.INSTRUCTOR)
+    current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.INSTRUCTOR)
 
     out = _run(
         users_routes.list_learners_for_scheduling(
@@ -1947,25 +1947,17 @@ def test_user_update_supports_user_id_changes():
         name="Old Name",
         role=RoleEnum.LEARNER,
         is_active=True,
+        created_by_id=current_user.id,
         updated_at=None,
     )
 
     class DummySession:
-        def __init__(self):
-            self.scalar_calls = 0
-
         def get(self, model, key):
             if getattr(model, "__name__", "") == "User" and key == target_user_id:
                 return user
             return None
 
         def scalar(self, _query):
-            # 1st call: per-admin isolation connection check (target user has
-            # attempted one of the actor's exams). Later calls: uniqueness
-            # lookups for the new user_id/email, which must find no conflict.
-            self.scalar_calls += 1
-            if self.scalar_calls == 1:
-                return 1
             return None
 
         def add(self, _obj):
@@ -1991,15 +1983,16 @@ def test_user_update_supports_user_id_changes():
 
 
 def test_user_group_payload_rejects_non_learner_members():
+    current_user = SimpleNamespace(id=uuid.uuid4(), role=RoleEnum.ADMIN)
     instructor_id = uuid.uuid4()
     learner_id = uuid.uuid4()
 
     class DummySession:
         def get(self, model, key):
             if key == instructor_id:
-                return SimpleNamespace(id=instructor_id, role=RoleEnum.INSTRUCTOR)
+                return SimpleNamespace(id=instructor_id, role=RoleEnum.INSTRUCTOR, created_by_id=current_user.id)
             if key == learner_id:
-                return SimpleNamespace(id=learner_id, role=RoleEnum.LEARNER)
+                return SimpleNamespace(id=learner_id, role=RoleEnum.LEARNER, created_by_id=current_user.id)
             return None
 
         def scalars(self, _query):
@@ -2018,6 +2011,7 @@ def test_user_group_payload_rejects_non_learner_members():
                 description="  March intake  ",
                 member_ids=[str(instructor_id)],
             ),
+            current_user,
         )
     except HTTPException as exc:
         assert exc.status_code == 422
@@ -2032,6 +2026,7 @@ def test_user_group_payload_rejects_non_learner_members():
             description="  March intake  ",
             member_ids=[str(learner_id)],
         ),
+        current_user,
     )
     assert normalized["name"] == "Cohort A"
     assert normalized["description"] == "March intake"
@@ -2069,6 +2064,7 @@ def test_course_payload_normalizes_and_rejects_duplicate_titles():
 
 
 def test_category_payload_normalizes_and_rejects_duplicate_names():
+    owner_id = uuid.uuid4()
     normalized = categories_routes._normalize_category_payload(
         categories_routes.CategoryBase(
             name="  Placement Tests  ",
@@ -2084,7 +2080,7 @@ def test_category_payload_normalizes_and_rejects_duplicate_names():
             return SimpleNamespace(id=uuid.uuid4(), name="placement tests")
 
     try:
-        categories_routes._ensure_unique_category_name(DummySession(), "Placement Tests")
+        categories_routes._ensure_unique_category_name(DummySession(), "Placement Tests", owner_id)
     except HTTPException as exc:
         assert exc.status_code == 409
         assert exc.detail == "Category exists"
@@ -2093,6 +2089,7 @@ def test_category_payload_normalizes_and_rejects_duplicate_names():
 
 
 def test_grading_scale_payload_normalizes_and_rejects_duplicate_names():
+    owner_id = uuid.uuid4()
     normalized = grading_scales_routes._normalize_scale_payload(
         grading_scales_routes.GradingScaleBase(
             name="  Standard Letter  ",
@@ -2113,7 +2110,7 @@ def test_grading_scale_payload_normalizes_and_rejects_duplicate_names():
             return SimpleNamespace(id=uuid.uuid4(), name="standard letter")
 
     try:
-        grading_scales_routes._ensure_unique_scale_name(DummySession(), "Standard Letter")
+        grading_scales_routes._ensure_unique_scale_name(DummySession(), "Standard Letter", owner_id)
     except HTTPException as exc:
         assert exc.status_code == 409
         assert exc.detail == "Grading scale exists"

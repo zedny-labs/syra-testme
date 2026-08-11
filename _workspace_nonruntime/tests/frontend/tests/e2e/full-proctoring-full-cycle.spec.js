@@ -236,6 +236,7 @@ test.describe('Full proctoring cycle', () => {
       await page.fill('input[placeholder="Option B"]', q.b)
       await page.fill('input[placeholder="Option C"]', q.c)
       await page.fill('input[placeholder="Option D"]', q.d)
+      await page.getByRole('radio', { name: 'Mark correct A' }).check()
       await page.getByRole('button', { name: /Add Question/i }).click()
       await expect(page.getByText(q.text)).toBeVisible()
     }

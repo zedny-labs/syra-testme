@@ -85,7 +85,7 @@ describe('AdminSchedules', () => {
 
     render(<AdminSchedules />)
 
-    await waitFor(() => expect(screen.getByText('Showing 1 schedule across 1 loaded.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText((_, element) => element?.textContent === 'Showing 1 schedule(s) across 1 loaded.')).toBeTruthy())
 
     fireEvent.change(screen.getByLabelText('Search schedules'), { target: { value: 'chemistry' } })
 
@@ -94,6 +94,6 @@ describe('AdminSchedules', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
 
     await waitFor(() => expect(screen.getByText('Learner One')).toBeTruthy())
-    expect(screen.getByText('Showing 1 schedule across 1 loaded.')).toBeTruthy()
+    expect(screen.getByText((_, element) => element?.textContent === 'Showing 1 schedule(s) across 1 loaded.')).toBeTruthy()
   })
 })

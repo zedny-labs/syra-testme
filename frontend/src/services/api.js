@@ -84,6 +84,14 @@ function storeRecentGetResponse(key, response) {
   })
 }
 
+function invalidateGetCachesAfterMutation(config = {}) {
+  const method = String(config.method || 'get').trim().toLowerCase()
+  if (!['get', 'head', 'options'].includes(method)) {
+    recentGetResponses.clear()
+    inflightGetRequests.clear()
+  }
+}
+
 function shouldTrackRouteScopedRequest(config) {
   const method = String(config?.method || 'get').trim().toLowerCase()
   if (!['get', 'head'].includes(method)) {
@@ -286,6 +294,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => {
     detachRouteScopedController(res?.config)
+    invalidateGetCachesAfterMutation(res?.config)
     const payload = res?.data && typeof res.data === 'object' && Object.prototype.hasOwnProperty.call(res.data, 'data')
       ? res.data.data
       : res?.data

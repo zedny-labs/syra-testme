@@ -186,7 +186,7 @@ describe('AdminNewTestWizard', () => {
     expect(screen.getByRole('option', { name: 'Module 1' })).toBeTruthy()
   })
 
-  it('blocks seeding from an empty pool and explains why', async () => {
+  it('opens the current section-based pool question flow from the questions step', async () => {
     questionPoolsMock.mockResolvedValue({
       data: [{ id: 'pool-1', name: 'Empty Pool', question_count: 0 }],
     })
@@ -206,10 +206,7 @@ describe('AdminNewTestWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Questions' })).toBeTruthy())
 
-    fireEvent.change(screen.getByDisplayValue('Select pool...'), { target: { value: 'pool-1' } })
-
-    expect(screen.getByText('This pool is empty. Open Question Pools and add questions before seeding.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Seed' }).disabled).toBe(true)
+    expect(screen.getByText('Add section from pool')).toBeTruthy()
     expect(seedExamFromPoolMock).not.toHaveBeenCalled()
   })
 

@@ -365,7 +365,7 @@ export default function AdminUserGroups() {
             const bulk = getBulk(group.id)
 
             return (
-              <div key={group.id} className={styles.card}>
+              <div key={group.id} className={styles.card} data-user-group-name={group.name || ''}>
                 <div className={styles.cardHeader}>
                   <div>
                     <span className={styles.cardTitle}>{group.name}</span>

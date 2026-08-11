@@ -412,7 +412,7 @@ export default function AdminSurveys() {
             const surveyQuestions = Array.isArray(survey.questions) ? survey.questions : []
 
             return (
-              <div key={survey.id} className={styles.card}>
+              <div key={survey.id} className={styles.card} data-survey-title={survey.title || ''}>
                 {!canManageSurvey(survey) && (
                   <div className={styles.readOnlyNote}>{t('admin_surveys_read_only')}</div>
                 )}

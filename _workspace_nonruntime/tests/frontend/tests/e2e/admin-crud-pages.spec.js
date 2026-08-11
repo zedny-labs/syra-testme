@@ -25,7 +25,7 @@ test.describe('Admin CRUD pages', () => {
     const groupName = `Cohort ${suffix}`
 
     await page.goto('/admin/users')
-    await expect(page.getByRole('heading', { name: 'User Profiles' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
 
     await page.getByRole('button', { name: '+ New User' }).click()
     await page.locator('label:has-text("User ID") + input').fill(learnerUserId)
@@ -33,7 +33,7 @@ test.describe('Admin CRUD pages', () => {
     await page.locator('label:has-text("Email") + input').fill(learnerEmail)
     await page.locator('label:has-text("Password") + input').fill('Password123!')
     await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText('User created.')).toBeVisible()
+    await expect(page.getByText('User created successfully.')).toBeVisible()
 
     const learnerRow = tableRow(page, learnerEmail)
     await expect(learnerRow).toBeVisible()
@@ -41,31 +41,35 @@ test.describe('Admin CRUD pages', () => {
 
     await page.locator('label:has-text("User ID") + input').fill(updatedUserId)
     await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText('User updated.')).toBeVisible()
+    await expect(page.getByText('User updated successfully.')).toBeVisible()
 
     await page.reload()
-    await page.getByPlaceholder('Search by name, email, ID...').fill(learnerEmail)
+    await page.getByPlaceholder('Search by name, email, or ID...').fill(learnerEmail)
     await expect(tableRow(page, learnerEmail)).toContainText(updatedUserId)
 
     await page.goto('/admin/user-groups')
     await expect(page.getByRole('heading', { name: 'User Groups' })).toBeVisible()
 
     const groupsMain = page.locator('main')
-    await groupsMain.getByRole('textbox').nth(0).fill(groupName)
-    await groupsMain.getByRole('textbox').nth(1).fill('E2E learner cohort')
-    await groupsMain.getByRole('button', { name: 'Save Group' }).click()
+    await groupsMain.getByRole('button', { name: 'New Group' }).click()
+    const groupDialog = page.getByRole('dialog', { name: 'New Group' })
+    await groupDialog.getByLabel('Name').fill(groupName)
+    await groupDialog.getByLabel('Description').fill('E2E learner cohort')
+    await groupDialog.getByRole('button', { name: 'Save Group' }).click()
     await expect(page.getByText('Group created.')).toBeVisible()
-    await expect(page.getByText(`Members - ${groupName}`)).toBeVisible()
+    const groupCard = groupsMain.locator(`[data-user-group-name="${groupName}"]`)
+    await expect(groupCard).toBeVisible()
+    await groupCard.getByRole('button', { name: 'Show members' }).click()
 
-    await groupsMain.getByPlaceholder('Search learners by name, email, or ID...').fill(learnerEmail)
-    await groupsMain.getByRole('checkbox', { name: `${learnerName} ${learnerEmail}` }).check()
-    await groupsMain.getByRole('button', { name: 'Add 1 selected member' }).click()
-    await expect(groupsMain.locator('div').filter({ hasText: learnerEmail }).filter({ has: page.getByRole('button', { name: 'Remove' }) }).first()).toBeVisible()
+    await groupCard.getByRole('combobox').selectOption({ label: `${learnerName} (${learnerEmail})` })
+    await groupCard.getByRole('button', { name: 'Add' }).click()
+    await expect(page.getByText('Member added.')).toBeVisible()
+    await expect(groupCard.locator('div').filter({ hasText: learnerEmail }).filter({ has: page.getByRole('button', { name: 'Remove' }) }).first()).toBeVisible()
 
-    const memberRow = groupsMain.locator('div').filter({ hasText: learnerEmail }).filter({ has: page.getByRole('button', { name: 'Remove' }) }).first()
+    const memberRow = groupCard.locator('div').filter({ hasText: learnerEmail }).filter({ has: page.getByRole('button', { name: 'Remove' }) }).first()
     await memberRow.getByRole('button', { name: 'Remove' }).click()
     await expect(page.getByText('Member removed.')).toBeVisible()
-    await expect(page.getByText('No members in this group.')).toBeVisible()
+    await expect(groupCard.getByText('No members in this group.')).toBeVisible()
   })
 
   test('courses, templates, and surveys persist real create and update flows', async ({ page, context }) => {
@@ -80,17 +84,20 @@ test.describe('Admin CRUD pages', () => {
     const surveyTitle = `Survey ${suffix}`
 
     await page.goto('/admin/courses')
-    await expect(page.getByRole('heading', { name: 'Training Courses' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Courses' })).toBeVisible()
 
     const coursesMain = page.locator('main')
-    await coursesMain.getByRole('textbox').nth(0).fill(courseTitle)
-    await coursesMain.getByRole('textbox').nth(1).fill('Course created in e2e')
-    await coursesMain.getByRole('button', { name: 'Save Course' }).click()
+    await coursesMain.getByRole('button', { name: 'New Course' }).click()
+    const courseDialog = page.getByRole('dialog', { name: 'Create New Course' })
+    await courseDialog.getByLabel('Title').fill(courseTitle)
+    await courseDialog.getByLabel('Description').fill('Course created in e2e')
+    await courseDialog.getByRole('button', { name: 'Save Course' }).click()
     await expect(page.getByText('Course created.')).toBeVisible()
 
-    await expect(coursesMain.getByText(courseTitle)).toBeVisible()
-    await coursesMain.getByPlaceholder('New module title').first().fill(moduleTitle)
-    await coursesMain.getByRole('button', { name: 'Add' }).first().click()
+    const courseCard = coursesMain.locator(`[data-course-title="${courseTitle}"]`)
+    await expect(courseCard).toBeVisible()
+    await courseCard.getByPlaceholder('Module title').fill(moduleTitle)
+    await courseCard.getByRole('button', { name: 'Add' }).click()
     await expect(page.getByText('Module added.')).toBeVisible()
     await expect(coursesMain.getByText('Loading...')).toHaveCount(0)
     await expect(page.getByText(moduleTitle)).toBeVisible()
@@ -98,15 +105,18 @@ test.describe('Admin CRUD pages', () => {
     await page.goto('/admin/templates')
     await expect(page.getByRole('heading', { name: 'Test Templates' })).toBeVisible()
 
-    await page.locator('label:has-text("Name") + input').fill(templateName)
-    await page.locator('label:has-text("Description") + input').fill('Template created in e2e')
-    await page.getByRole('button', { name: 'Save Template' }).click()
+    await page.getByRole('button', { name: 'New Template' }).click()
+    const templateDialog = page.getByRole('dialog', { name: 'New Template' })
+    await templateDialog.getByLabel('Name').fill(templateName)
+    await templateDialog.getByLabel('Description').fill('Template created in e2e')
+    await templateDialog.getByRole('button', { name: 'Save Template' }).click()
     await expect(page.getByText('Template created.')).toBeVisible()
 
-    const templateRow = page.locator('[data-template-row="true"]').filter({ hasText: templateName }).first()
-    await templateRow.getByRole('button', { name: 'Edit' }).click()
-    await page.locator('label:has-text("Name") + input').fill(updatedTemplateName)
-    await page.getByRole('button', { name: 'Update Template' }).click()
+    const templateCard = page.locator(`[data-template-name="${templateName}"]`)
+    await templateCard.getByRole('button', { name: `Edit ${templateName}` }).click()
+    const editTemplateDialog = page.getByRole('dialog', { name: 'Edit Template' })
+    await editTemplateDialog.getByLabel('Name').fill(updatedTemplateName)
+    await editTemplateDialog.getByRole('button', { name: 'Update Template' }).click()
     await expect(page.getByText('Template updated.')).toBeVisible()
     await expect(page.getByText(updatedTemplateName)).toBeVisible()
 
@@ -114,18 +124,15 @@ test.describe('Admin CRUD pages', () => {
     await expect(page.getByRole('heading', { name: 'Surveys' })).toBeVisible()
 
     const surveysMain = page.locator('main')
-    const surveyForm = surveysMain.locator('form').first()
-    await surveyForm.getByRole('textbox').nth(0).fill(surveyTitle)
-    await surveyForm.getByPlaceholder('Question 1').fill('Was the workflow clear?')
-    await surveyForm.getByRole('button', { name: 'Save Survey' }).click()
+    await surveysMain.getByRole('button', { name: 'New Survey' }).click()
+    const surveyDialog = page.getByRole('dialog', { name: 'New Survey' })
+    await surveyDialog.getByLabel('Title').fill(surveyTitle)
+    await surveyDialog.getByPlaceholder('Question 1').fill('Was the workflow clear?')
+    await surveyDialog.getByRole('button', { name: 'Save Survey' }).click()
     await expect(page.getByText('Survey created.')).toBeVisible()
 
-    const deactivateButtonName = `Deactivate survey ${surveyTitle}`
-    const surveyRow = surveysMain
-      .locator('div')
-      .filter({ hasText: surveyTitle })
-      .filter({ has: page.getByRole('button', { name: deactivateButtonName }) })
-      .first()
+    const deactivateButtonName = `Deactivate ${surveyTitle}`
+    const surveyRow = surveysMain.locator(`[data-survey-title="${surveyTitle}"]`)
     await expect(surveyRow).toBeVisible()
     await surveyRow.getByRole('button', { name: deactivateButtonName }).click()
     await expect(page.getByText('Survey deactivated.')).toBeVisible()

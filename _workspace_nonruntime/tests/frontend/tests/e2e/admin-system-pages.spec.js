@@ -46,21 +46,23 @@ test.describe('Admin system pages', () => {
     await expect(page.getByText(email)).toBeVisible()
 
     await page.goto('/admin/report-builder')
-    await expect(page.getByRole('heading', { name: 'Report Builder' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Custom Reports' })).toBeVisible()
 
     await page.goto('/admin/reports')
     await expect(page.getByRole('heading', { name: 'Scheduled Reports' })).toBeVisible()
 
     const main = page.locator('main')
-    await main.getByLabel('Name').fill(scheduleName)
-    await main.getByLabel('Cron').fill('bad cron')
-    await main.getByLabel('Recipients (comma separated emails)').fill(email)
-    await main.getByRole('button', { name: 'Save Schedule' }).click()
+    await main.getByRole('button', { name: '+ New Schedule' }).click()
+    const scheduleDialog = page.getByRole('dialog', { name: 'New Report Schedule' })
+    await scheduleDialog.getByLabel('Name').fill(scheduleName)
+    await scheduleDialog.getByLabel('Cron').fill('bad cron')
+    await scheduleDialog.getByLabel('Recipients (comma-separated emails)').fill(email)
+    await scheduleDialog.getByRole('button', { name: 'Save Schedule' }).click()
     await expect(page.getByText('Invalid cron expression')).toBeVisible()
 
-    await main.getByLabel('Cron').fill('0 8 * * *')
-    await main.getByRole('button', { name: 'Save Schedule' }).click()
-    await expect(page.getByText('Schedule created.')).toBeVisible()
+    await scheduleDialog.getByLabel('Cron').fill('0 8 * * *')
+    await scheduleDialog.getByRole('button', { name: 'Save Schedule' }).click()
+    await expect(page.getByText('Schedule created successfully.')).toBeVisible()
 
     const row = scheduleRow(page, scheduleName)
     await expect(row).toBeVisible()
@@ -105,7 +107,7 @@ test.describe('Admin system pages', () => {
 
     const slackCard = integrationCard(page, 'Slack')
     await slackCard.getByRole('button', { name: 'Enable' }).click()
-    await expect(page.getByText('Slack requires a URL before you can enable it.')).toBeVisible()
+    await expect(page.getByText('Slack requires a URL to enable.')).toBeVisible()
 
     await slackCard.getByLabel('Webhook URL').fill(slackUrl)
     await slackCard.getByRole('button', { name: 'Save' }).click()
@@ -116,7 +118,7 @@ test.describe('Admin system pages', () => {
     await expect(reloadedSlackCard.getByLabel('Webhook URL')).toHaveValue(slackUrl)
 
     await reloadedSlackCard.getByRole('button', { name: 'Enable' }).click()
-    await expect(page.getByText('Slack enabled.')).toBeVisible()
+    await expect(page.getByText('Slack has been enabled.')).toBeVisible()
     await expect(reloadedSlackCard.getByRole('button', { name: 'Disable' })).toBeVisible()
   })
 })

@@ -411,7 +411,7 @@ export default function AdminCourses() {
             const moduleCount = (nodes[course.id] || []).length
 
             return (
-              <div key={course.id} className={styles.card}>
+              <div key={course.id} className={styles.card} data-course-title={course.title || ''}>
                 {!canManageCourse(course) && (
                   <div className={styles.readOnlyNote}>{t('admin_courses_read_only')}</div>
                 )}

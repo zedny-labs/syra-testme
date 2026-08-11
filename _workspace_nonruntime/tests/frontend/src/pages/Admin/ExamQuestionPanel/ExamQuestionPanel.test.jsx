@@ -51,10 +51,11 @@ describe('ExamQuestionPanel', () => {
     fireEvent.change(screen.getByPlaceholderText('Enter question...'), { target: { value: 'What is 2 + 2?' } })
 
     expect(screen.getByRole('button', { name: 'Add Question' }).disabled).toBe(true)
-    expect(screen.getByText('At least 2 options are required')).toBeTruthy()
+    expect(screen.getByText('Add at least two options.')).toBeTruthy()
 
     fireEvent.change(screen.getByPlaceholderText('Option A'), { target: { value: '4' } })
     fireEvent.change(screen.getByPlaceholderText('Option B'), { target: { value: '5' } })
+    fireEvent.click(screen.getByLabelText('Mark correct A'))
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Add Question' }).disabled).toBe(false))
     fireEvent.click(screen.getByRole('button', { name: 'Add Question' }))
@@ -64,7 +65,7 @@ describe('ExamQuestionPanel', () => {
       text: 'What is 2 + 2?',
       type: 'MCQ',
       options: ['4', '5'],
-      correct_answer: 'A',
+      correct_answer: '4',
     })))
     await waitFor(() => expect(getQuestions).toHaveBeenCalledWith('test-1'))
   })

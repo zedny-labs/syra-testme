@@ -136,7 +136,7 @@ describe('AdminAttemptAnalysis', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeTruthy())
-    expect(screen.getByText('Some analysis data could not be loaded. Retry to refresh.')).toBeTruthy()
+    expect(screen.getByText(/Some analysis data could not be loaded\. Retry to refresh\./)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Timeline' }))
     await waitFor(() => expect(screen.getByText('No events recorded.')).toBeTruthy())
   })

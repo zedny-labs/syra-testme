@@ -106,15 +106,15 @@ describe('AdminReports page', () => {
 
     render(<AdminReports />)
 
-    await waitFor(() => expect(screen.getByText('Showing 2 schedules across 2 loaded.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText((_, element) => element?.textContent === 'Showing 2 schedules across 2 loaded.')).toBeTruthy())
 
     fireEvent.change(screen.getByLabelText('Search Schedules'), { target: { value: 'missing schedule' } })
 
-    await waitFor(() => expect(screen.getByText('No schedules match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No schedules match filters')).toBeTruthy())
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear Filters' })[0])
 
     await waitFor(() => expect(screen.getByText('Daily Summary')).toBeTruthy())
-    expect(screen.getByText('Showing 2 schedules across 2 loaded.')).toBeTruthy()
+    expect(screen.getByText((_, element) => element?.textContent === 'Showing 2 schedules across 2 loaded.')).toBeTruthy()
   })
 })

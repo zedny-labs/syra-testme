@@ -301,7 +301,7 @@ describe('AttemptResult page', () => {
     expect(screen.queryByText('Wrong')).toBeNull()
     expect(screen.getByText(/Reference:/)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /Back to Manage Test/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Back to test management/i }))
     await waitFor(() => expect(screen.getByText('Manage test route')).toBeTruthy())
   })
 

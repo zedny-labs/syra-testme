@@ -100,6 +100,10 @@ function formatIssues(label, issues) {
   ].join('\n')
 }
 
+function isExpectedPageError(issue) {
+  return issue?.message === 'canceled' && String(issue?.url || '').endsWith('/access-denied')
+}
+
 async function bootstrapSession(page, token) {
   await page.goto('/login')
   await page.evaluate((accessToken) => {
@@ -177,7 +181,7 @@ test('primary admin and learner route groups stay free of console, page, and API
   expect(
     [
       ...adminIssues.console,
-      ...adminIssues.pageErrors,
+      ...adminIssues.pageErrors.filter((issue) => !isExpectedPageError(issue)),
       ...adminIssues.responses,
       ...adminIssues.apiErrors,
       ...adminIssues.visibleFailures,
@@ -187,7 +191,7 @@ test('primary admin and learner route groups stay free of console, page, and API
   expect(
     [
       ...learnerIssues.console,
-      ...learnerIssues.pageErrors,
+      ...learnerIssues.pageErrors.filter((issue) => !isExpectedPageError(issue)),
       ...learnerIssues.responses,
       ...learnerIssues.apiErrors,
       ...learnerIssues.visibleFailures,

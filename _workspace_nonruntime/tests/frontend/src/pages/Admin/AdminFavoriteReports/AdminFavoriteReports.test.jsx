@@ -46,7 +46,7 @@ describe('AdminFavoriteReports page', () => {
     await waitFor(() => expect(screen.getByText('Legacy report')).toBeTruthy())
     expect(screen.getByText('This saved route no longer exists in the current MVP navigation.')).toBeTruthy()
 
-    const staleButton = screen.getByRole('button', { name: /Legacy report/i })
+    const staleButton = screen.getByRole('button', { name: 'Open Legacy report' })
     expect(staleButton.disabled).toBe(true)
 
     fireEvent.click(staleButton)
@@ -80,9 +80,11 @@ describe('AdminFavoriteReports page', () => {
     render(<AdminFavoriteReports />)
 
     await waitFor(() => expect(screen.getByText('Scheduled Reports')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Add Favorite' }))
+
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Risk Alerts' } })
     fireEvent.change(screen.getByLabelText('URL or path'), { target: { value: '/admin/reports' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add Favorite' })[1])
 
     await waitFor(() => expect(updateMyPreference).toHaveBeenCalled())
     expect(screen.queryByText('That favorite is already saved.')).toBeNull()

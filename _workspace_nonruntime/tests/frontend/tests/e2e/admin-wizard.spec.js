@@ -118,6 +118,7 @@ test.describe('Admin New Test Wizard end-to-end', () => {
     await page.fill('input[placeholder="Option B"]', 'Option B')
     await page.fill('input[placeholder="Option C"]', 'Option C')
     await page.fill('input[placeholder="Option D"]', 'Option D')
+    await page.getByRole('radio', { name: 'Mark correct A' }).check()
     await page.getByRole('button', { name: /Add Question/i }).click()
     await page.getByRole('button', { name: /Next/i }).click()
 

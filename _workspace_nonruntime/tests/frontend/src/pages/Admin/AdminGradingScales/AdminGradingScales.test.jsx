@@ -43,7 +43,7 @@ describe('AdminGradingScales', () => {
     fireEvent.change(screen.getByLabelText('Band 1 maximum score'), { target: { value: '90' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Scale' }))
 
-    await waitFor(() => expect(screen.getByText('Band minimum scores cannot exceed the maximum.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Minimum score cannot exceed maximum score.')).toBeTruthy())
     expect(createGradingScaleMock).not.toHaveBeenCalled()
   })
 
@@ -57,7 +57,7 @@ describe('AdminGradingScales', () => {
     fireEvent.change(screen.getByLabelText('Band 2 maximum score'), { target: { value: '95' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Scale' }))
 
-    await waitFor(() => expect(screen.getByText('Grade bands cannot overlap.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Grade bands must not overlap.')).toBeTruthy())
     expect(createGradingScaleMock).not.toHaveBeenCalled()
   })
 
@@ -82,7 +82,7 @@ describe('AdminGradingScales', () => {
       target: { value: 'custom' },
     })
 
-    await waitFor(() => expect(screen.getByText('No grading scales match the current filters.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No scales match your search')).toBeTruthy())
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1))
 
     await waitFor(() => expect(screen.getByText('Standard Letter')).toBeTruthy())

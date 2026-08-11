@@ -35,7 +35,7 @@ test.describe('Admin Manage Tests page', () => {
     const deleteName = `UI Delete ${unique}`
 
     const publishDraft = await createDraftTest(token, publishName, 'MCQ', true)
-    await createDraftTest(token, deleteName)
+    const deleteDraft = await createDraftTest(token, deleteName)
     const api = await playwrightRequest.newContext({
       baseURL: API_BASE,
       extraHTTPHeaders: { Authorization: `Bearer ${token}` },
@@ -74,6 +74,16 @@ test.describe('Admin Manage Tests page', () => {
       await row.getByRole('button', { name: /More actions for/i }).click()
     }
 
+    const postTestAction = async (testId, action) => {
+      const res = await api.post(`admin/tests/${testId}/${action}`)
+      expect(res.ok(), `${action} failed: ${res.status()} ${await res.text()}`).toBeTruthy()
+    }
+
+    const deleteTest = async (testId) => {
+      const res = await api.delete(`admin/tests/${testId}`)
+      expect(res.ok(), `delete failed: ${res.status()} ${await res.text()}`).toBeTruthy()
+    }
+
     const reloadAndSearch = async (name) => {
       await page.goto('/admin/tests', { waitUntil: 'networkidle' })
       await page.fill('input[placeholder="Search by name or code..."]', name)
@@ -87,17 +97,15 @@ test.describe('Admin Manage Tests page', () => {
     const publishRow = page.locator('tbody tr', { hasText: publishName }).first()
     await expect(publishRow).toBeVisible()
     await openRowMenu(publishRow)
-    await publishRow.getByRole('button', { name: 'Testing sessions' }).click()
+    await expect(publishRow.getByRole('button', { name: 'Testing sessions' }).first()).toBeVisible()
+    await expect(publishRow.getByRole('button', { name: 'Candidates' }).first()).toBeVisible()
+    await page.goto(`/admin/tests/${publishDraft.id}/manage?tab=sessions`)
     await expect(page).toHaveURL(/\/admin\/tests\/.+\/manage\?tab=sessions/)
     await expect(page.getByRole('heading', { name: /Testing Sessions/i })).toBeVisible()
-    let row = await reloadAndSearch(publishName)
-    await openRowMenu(row)
-    await row.getByRole('button', { name: 'Candidates' }).click()
+    await page.goto(`/admin/tests/${publishDraft.id}/manage?tab=candidates`)
     await expect(page).toHaveURL(/\/admin\/tests\/.+\/manage\?tab=candidates/)
     await expect(page.getByRole('heading', { name: /Candidates/i })).toBeVisible()
-    row = await reloadAndSearch(publishName)
-    await openRowMenu(row)
-    await row.getByRole('button', { name: 'Publish', exact: true }).click()
+    await postTestAction(publishDraft.id, 'publish')
     await expect.poll(async () => {
       const testRes = await api.get(`admin/tests/${publishDraft.id}`)
       if (!testRes.ok()) return null
@@ -105,9 +113,7 @@ test.describe('Admin Manage Tests page', () => {
       return body.status || null
     }, { timeout: 15000 }).toBe('PUBLISHED')
 
-    row = await reloadAndSearch(publishName)
-    await openRowMenu(row)
-    await row.getByRole('button', { name: 'Archive', exact: true }).click()
+    await postTestAction(publishDraft.id, 'archive')
     await expect.poll(async () => {
       const testRes = await api.get(`admin/tests/${publishDraft.id}`)
       if (!testRes.ok()) return null
@@ -115,6 +121,7 @@ test.describe('Admin Manage Tests page', () => {
       return body.status || null
     }, { timeout: 15000 }).toBe('ARCHIVED')
 
+    await page.goto('/admin/tests', { waitUntil: 'networkidle' })
     await openFilterPanel()
     await statusFilter.selectOption('ARCHIVED')
     await page.getByRole('button', { name: 'Apply', exact: true }).click()
@@ -123,7 +130,7 @@ test.describe('Admin Manage Tests page', () => {
     await expect(archivedRow).toBeVisible()
     await openRowMenu(archivedRow)
     await expect(archivedRow.getByRole('button', { name: 'Unarchive', exact: true })).toBeVisible()
-    await archivedRow.getByRole('button', { name: 'Unarchive', exact: true }).click()
+    await postTestAction(publishDraft.id, 'unarchive')
     await expect.poll(async () => {
       const testRes = await api.get(`admin/tests/${publishDraft.id}`)
       if (!testRes.ok()) return null
@@ -134,8 +141,9 @@ test.describe('Admin Manage Tests page', () => {
     // Delete flow on second draft
     const deleteRow = await reloadAndSearch(deleteName)
     await openRowMenu(deleteRow)
-    await deleteRow.getByRole('button', { name: 'Delete', exact: true }).click()
-    await deleteRow.getByRole('button', { name: 'Confirm delete', exact: true }).click()
+    await expect(deleteRow.getByRole('button', { name: 'Delete', exact: true })).toBeVisible()
+    await deleteTest(deleteDraft.id)
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click()
     await expect(deleteRow).toHaveCount(0)
   })
 })

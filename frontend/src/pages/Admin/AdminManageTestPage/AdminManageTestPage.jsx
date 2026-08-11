@@ -435,6 +435,28 @@ function applyVideoUploadStatus(row, rawStatus) {
   }
 }
 
+function sameStringList(left, right) {
+  const leftList = Array.isArray(left) ? left : []
+  const rightList = Array.isArray(right) ? right : []
+  if (leftList.length !== rightList.length) return false
+  return leftList.every((value, index) => String(value) === String(rightList[index]))
+}
+
+function hasSameVideoUploadStatus(row, rawStatus) {
+  const status = rawStatus || defaultVideoUploadStatus()
+  return Boolean(row)
+    && Boolean(row.hasVideo) === Boolean(status.hasVideo)
+    && Number(row.savedVideoCount || 0) === Number(status.savedVideoCount || 0)
+    && Number(row.uploadPercent || 0) === Number(status.uploadPercent || 0)
+    && Number(row.remainingPercent || 0) === Number(status.remainingPercent || 0)
+    && Boolean(row.uploading) === Boolean(status.uploading)
+    && String(row.uploadStatus || '') === String(status.uploadStatus || '')
+    && String(row.uploadStatusLabel || '') === String(status.uploadStatusLabel || '')
+    && Boolean(row.allRequiredVideosUploaded) === Boolean(status.allRequiredVideosUploaded)
+    && sameStringList(row.uploadSources, status.uploadSources)
+    && sameStringList(row.requiredVideoSources, status.requiredVideoSources)
+}
+
 function shouldPollRowVideoUploadStatus(row) {
   const status = String(row?.uploadStatus || '').trim().toLowerCase()
   if (status === 'not_started' || status === 'complete' || status === 'error') return false
@@ -1311,7 +1333,16 @@ export default function AdminManageTestPage() {
     try {
       const uploadStatusMap = await loadVideoUploadStatusMap(signal, normalizedAttemptIds)
       if (signal?.aborted) return
-      setAttemptRows((prev) => prev.map((row) => applyVideoUploadStatus(row, uploadStatusMap.get(String(row.id)))))
+      setAttemptRows((prev) => {
+        let changed = false
+        const nextRows = prev.map((row) => {
+          const nextStatus = uploadStatusMap.get(String(row.id))
+          if (hasSameVideoUploadStatus(row, nextStatus)) return row
+          changed = true
+          return applyVideoUploadStatus(row, nextStatus)
+        })
+        return changed ? nextRows : prev
+      })
     } catch (refreshError) {
       if (!isCanceledRequest(refreshError)) {
         console.warn('Failed to refresh admin video upload status.', refreshError)

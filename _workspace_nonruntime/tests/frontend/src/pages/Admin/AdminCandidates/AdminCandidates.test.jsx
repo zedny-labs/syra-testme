@@ -142,11 +142,11 @@ describe('AdminCandidates', () => {
 
     await screen.findByText('Learner One')
 
-    fireEvent.change(screen.getAllByPlaceholderText('Search by learner, email, or test').at(-1), {
+    fireEvent.change(screen.getAllByPlaceholderText('Search by name, email, or test...').at(-1), {
       target: { value: 'missing learner' },
     })
 
-    await screen.findByText('No attempts match the current filters. Clear the filters to see the full queue again.')
+    await screen.findByText('No matches')
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' }).at(-1))
 
@@ -176,7 +176,7 @@ describe('AdminCandidates', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Imported Results' })).at(-1))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Imported' })).at(-1))
 
     const fileInput = document.querySelector('input[type="file"]')
     fireEvent.change(fileInput, {
@@ -185,8 +185,8 @@ describe('AdminCandidates', () => {
       },
     })
 
-    await screen.findByText('Missing required columns: test_title or exam_title')
+    await screen.findByText(/Missing required columns:/)
 
-    expect(screen.getByRole('button', { name: 'Import 1 result row(s)' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Import 1 result rows' }).disabled).toBe(true)
   })
 })
