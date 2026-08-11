@@ -80,7 +80,7 @@ def create_question(body: QuestionCreate, db: Session = Depends(get_db_dep), cur
     ensure_exam_owner(exam, current, detail=_t("not_allowed"), status_code=403)
     if exam.status == ExamStatus.OPEN:
         raise HTTPException(status_code=409, detail=_t("cannot_add_to_published"))
-    from app.api.routes.exam_sections import ensure_general_section
+    from .exam_sections import ensure_general_section
     payload = sanitize_question_payload(body.model_dump())
     payload["section_id"] = body.section_id or ensure_general_section(db, exam).id
     now = datetime.now(timezone.utc)
