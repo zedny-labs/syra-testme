@@ -1,5 +1,6 @@
 from ...detection.face_verification import compute_face_signature as _compute_face_signature
 from ...modules.attempts import routes_public as _impl
+from ...modules.attempts import routes_admin as _admin_impl
 from ...modules.attempts.routes_public import (
     Attempt,
     AttemptAnswer,
@@ -45,6 +46,9 @@ _enforce_attempt_access = _impl._enforce_attempt_access
 _create_attempt_record = _impl._create_attempt_record
 _auto_score_attempt = _impl._auto_score_attempt
 _evaluate_answer = _impl._evaluate_answer
+
+# Include admin-only routes (e.g. DELETE /api/attempts/purge)
+router.include_router(_admin_impl.router)
 
 
 __all__ = [
