@@ -25,7 +25,7 @@ const SEEK_STEP_SECONDS = 5
 // Drives the existing @vimeo/player SDK instance to render a control bar
 // styled to match this app, replacing Vimeo's native (branded) controls —
 // see docs/superpowers/specs/2026-08-16-vimeo-custom-controls-design.md.
-export default function VimeoControlsBar({ player, iframeRef, currentTime, duration, onSeek }) {
+export default function VimeoControlsBar({ player, fullscreenTargetRef, currentTime, duration, onSeek }) {
   const { t } = useLanguage()
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolume] = useState(1)
@@ -137,7 +137,7 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
   }
 
   const requestFullscreen = () => {
-    iframeRef?.current?.requestFullscreen?.().catch(() => {})
+    fullscreenTargetRef?.current?.requestFullscreen?.().catch(() => {})
   }
 
   return (

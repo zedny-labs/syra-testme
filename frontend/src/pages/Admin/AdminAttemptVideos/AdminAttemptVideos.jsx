@@ -131,6 +131,7 @@ export default function AdminAttemptVideos() {
   const hlsRef = useRef(null)
   const vimeoIframeRef = useRef(null)
   const vimeoPlayerRef = useRef(null)
+  const vimeoPlayerWrapRef = useRef(null)
   const durationProbeKeyRef = useRef('')
   const dataAbortRef = useRef(null)
 
@@ -912,7 +913,7 @@ export default function AdminAttemptVideos() {
             <div className={styles.playerViewport}>
               {selectedVideoUrl ? (
                 selectedVideoIsVimeo ? (
-                  <div className={styles.vimeoPlayerWrap}>
+                  <div className={styles.vimeoPlayerWrap} ref={vimeoPlayerWrapRef}>
                     <iframe
                       key={`vimeo-${selectedVideo?.name || 'recording'}`}
                       ref={vimeoIframeRef}
@@ -924,7 +925,7 @@ export default function AdminAttemptVideos() {
                     />
                     <VimeoControlsBar
                       player={vimeoPlayerRef.current}
-                      iframeRef={vimeoIframeRef}
+                      fullscreenTargetRef={vimeoPlayerWrapRef}
                       currentTime={currentTime}
                       duration={effectiveDuration}
                       onSeek={seekTo}
