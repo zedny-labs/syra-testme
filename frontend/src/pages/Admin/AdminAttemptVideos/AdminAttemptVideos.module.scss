@@ -369,6 +369,11 @@
 .video {
   width: 100%;
   max-height: 420px;
+  // <video> elements size themselves from the file's own intrinsic ratio;
+  // <iframe> (the Vimeo embed) has no intrinsic ratio and would otherwise
+  // collapse to the browser's default ~150px height, so give it an explicit
+  // fallback ratio here.
+  aspect-ratio: auto 16 / 9;
   object-fit: contain;
   background: #000;
   display: block;
