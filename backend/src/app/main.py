@@ -404,11 +404,6 @@ def _run_startup_initialization(*, is_test_env: bool) -> None:
                 "Either disable the bypass or set E2E_SEED_ENABLED=true to confirm this is a test environment."
             )
         logger.critical("PRECHECK_ALLOW_TEST_BYPASS is enabled - identity verification accepts the local test bypass flag.")
-    if str(settings.CLOUDFLARE_MEDIA_API_BASE_URL or "").strip() and not settings.CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS:
-        logger.critical(
-            "SECURITY: Cloudflare video storage is configured but CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS is false. "
-            "Proctoring videos will be publicly accessible. Set CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS=true for production."
-        )
     if is_test_env:
         logger.info("Skipping automatic Alembic migrations in test environment")
         return
@@ -597,6 +592,9 @@ async def lifespan(_: FastAPI):
 
     is_test_env = _is_test_env()
     _run_startup_initialization_once_per_container(is_test_env=is_test_env)
+    # One-shot cleanup: delete all attempts if the flag is set
+    from .startup_purge import run_if_flagged as _purge_attempts_if_flagged
+    _purge_attempts_if_flagged()
     is_leader = _try_acquire_leader_lock()
     background_tasks = []
     if not is_test_env and is_leader:

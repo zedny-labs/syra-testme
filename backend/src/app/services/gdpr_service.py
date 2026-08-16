@@ -185,7 +185,7 @@ def collect_attempt_media(attempt: Attempt) -> dict:
             video_path = str(meta.get("path") or meta.get("object_path") or "").strip()
             video_provider = str(meta.get("provider") or "").strip().lower()
             if (
-                (is_absolute_http_url(video_url) and video_provider in {"", "cloudflare", "supabase"})
+                (is_absolute_http_url(video_url) and video_provider in {"", "cloudflare", "supabase", "vimeo"})
                 or (video_provider == "supabase" and video_path)
             ):
                 video_source = str(meta.get("source") or "camera")

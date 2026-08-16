@@ -43,13 +43,6 @@ from ...services.proctoring_video_batch import (
 from ...tasks.proctoring_video import upload_proctoring_video_capture
 from ...services.audit import write_audit_log
 from ...services.notifications import notify_proctoring_event, notify_user
-from ...services.cloudflare_media import (
-    cloudflare_video_storage_enabled,
-    get_cloudflare_video_details,
-    infer_cloudflare_ready_to_stream,
-    sign_cloudflare_playback_url,
-    upload_video_to_cloudflare,
-)
 from ...services.supabase_storage import create_signed_url as create_supabase_signed_url
 from ...services.supabase_storage import upload_bytes as upload_bytes_to_supabase
 from ...services.vimeo_media import (
@@ -104,13 +97,6 @@ def _video_filename(attempt_id: str, session_id: str, source: str, extension: st
 
 def _video_storage_provider() -> str:
     provider = get_settings().PROCTORING_VIDEO_STORAGE_PROVIDER
-    if provider == "cloudflare":
-        if not cloudflare_video_storage_enabled():
-            raise HTTPException(
-                status_code=503,
-                detail=_t("cloudflare_not_properly_configured"),
-            )
-        return "cloudflare"
     if provider == "supabase":
         from ...services.supabase_storage import supabase_video_storage_enabled
         if not supabase_video_storage_enabled():
@@ -132,24 +118,11 @@ def _video_storage_provider() -> str:
     )
 
 
-def _require_cloudflare_video_storage() -> None:
-    provider = str(get_settings().PROCTORING_VIDEO_STORAGE_PROVIDER or "").strip().lower()
-    if provider != "cloudflare":
-        raise HTTPException(status_code=503, detail=_t("cloudflare_must_be_enabled"))
-    if not cloudflare_video_storage_enabled():
-        raise HTTPException(status_code=503, detail=_t("cloudflare_not_configured"))
-
-
-def _cloudflare_upload_queue_enabled() -> bool:
-    provider = str(get_settings().PROCTORING_VIDEO_STORAGE_PROVIDER or "").strip().lower()
-    return provider == "cloudflare" and video_job_queue_enabled()
-
-
 def _queued_upload_enabled(provider: str) -> bool:
-    # Cloudflare and Vimeo uploads are slow (transcode / resumable tus), so they run
-    # through the spool -> Celery path when a job queue is configured. Supabase writes
-    # bytes synchronously and does not use the queue.
-    return str(provider or "").strip().lower() in {"cloudflare", "vimeo"} and video_job_queue_enabled()
+    # Vimeo uploads are slow (resumable tus), so they run through the spool -> Celery
+    # path when a job queue is configured. Supabase writes bytes synchronously and
+    # does not use the queue.
+    return str(provider or "").strip().lower() == "vimeo" and video_job_queue_enabled()
 
 
 def _is_absolute_http_url(value: object) -> bool:
@@ -163,37 +136,6 @@ def _is_absolute_http_url(value: object) -> bool:
 async def _hydrate_video_file_info(item: dict[str, object]) -> dict[str, object]:
     hydrated = dict(item or {})
     provider = str(hydrated.get("provider") or "").strip().lower()
-
-    if provider == "cloudflare":
-        status = str(hydrated.get("status") or "").strip().lower()
-        if (
-            hydrated.get("ready_to_stream") is False
-            or status in {"queued", "pending", "uploading", "processing", "inprogress"}
-        ):
-            refreshed = await get_cloudflare_video_details(
-                uid=str(hydrated.get("uid") or "").strip() or None,
-                filename=str(hydrated.get("name") or "").strip() or None,
-                source=_normalize_video_source(hydrated.get("source")),
-                fallback_size=_coerce_non_negative_int(hydrated.get("size")),
-            )
-            if refreshed:
-                preserved_fields = (
-                    "session_id",
-                    "recording_started_at",
-                    "recording_stopped_at",
-                    "source",
-                )
-                merged = {**hydrated, **refreshed}
-                for key in preserved_fields:
-                    if merged.get(key) in (None, "") and hydrated.get(key) not in (None, ""):
-                        merged[key] = hydrated.get(key)
-                hydrated = merged
-        # Sign Cloudflare Stream URLs so videos with require_signed_urls work
-        for key in ("url", "playback_url"):
-            raw_url = str(hydrated.get(key) or "").strip()
-            if raw_url:
-                hydrated[key] = sign_cloudflare_playback_url(raw_url)
-        return hydrated
 
     if provider == "vimeo":
         status = str(hydrated.get("status") or "").strip().lower()
@@ -239,10 +181,8 @@ def _normalize_saved_video_meta(meta: object, occurred_at: datetime | None = Non
     name = str(meta.get("name") or "").strip()
     provider = str(meta.get("provider") or "").strip().lower()
     if not provider:
-        provider = "supabase" if path.startswith("videos/") else "cloudflare"
-    if provider not in {"cloudflare", "supabase", "vimeo"}:
-        return None
-    if provider == "cloudflare" and not _is_absolute_http_url(url):
+        provider = "supabase" if path.startswith("videos/") else "vimeo"
+    if provider not in {"supabase", "vimeo"}:
         return None
     if provider == "vimeo" and not _is_absolute_http_url(url):
         return None
@@ -254,9 +194,7 @@ def _normalize_saved_video_meta(meta: object, occurred_at: datetime | None = Non
         created_at = occurred_at.isoformat()
     status = str(meta.get("status") or "").strip().lower()
     explicit_ready = meta.get("ready_to_stream") if isinstance(meta, dict) and "ready_to_stream" in meta else None
-    if provider == "cloudflare":
-        ready_to_stream = infer_cloudflare_ready_to_stream(status=status, ready_to_stream=explicit_ready, playback_url=url)
-    elif provider == "vimeo":
+    if provider == "vimeo":
         # Vimeo transcodes asynchronously; it is only playable once marked ready.
         ready_to_stream = (explicit_ready is True) or status == "ready"
     else:
@@ -521,116 +459,6 @@ def _find_saved_video_file_info(db: Session, attempt_id: str, session_id: str, s
     return None
 
 
-def _candidate_recovery_filenames(attempt_id: str, session_id: str, source: str, preferred_filename: str | None = None) -> list[str]:
-    candidates: list[str] = []
-    normalized_preferred = Path(str(preferred_filename or "").strip()).name
-    if normalized_preferred:
-        candidates.append(normalized_preferred)
-    for extension in ("webm", "mp4"):
-        candidate = _video_filename(attempt_id, session_id, source, extension)
-        if candidate not in candidates:
-            candidates.append(candidate)
-    return candidates
-
-
-async def _recover_missing_cloudflare_videos(db: Session, attempt_id: str) -> None:
-    provider = str(settings.PROCTORING_VIDEO_STORAGE_PROVIDER or "").strip().lower()
-    if provider != "cloudflare" or not cloudflare_video_storage_enabled():
-        return
-
-    saved_keys = {
-        (
-            str(item.get("session_id") or ""),
-            _normalize_video_source(item.get("source")),
-        )
-        for item in (
-            _normalize_saved_video_meta(event.meta, event.occurred_at)
-            for event in _saved_video_events(db, attempt_id)
-        )
-        if item
-    }
-    progress_events = _video_upload_progress_events(db, attempt_id)
-    latest_progress_by_key: dict[tuple[str, str], dict[str, object]] = {}
-    for event in progress_events:
-        item = _normalize_video_upload_progress_meta(event.meta, event.occurred_at)
-        if not item:
-            continue
-        session_id = str(item.get("session_id") or "").strip()
-        if not session_id:
-            continue
-        source = _normalize_video_source(item.get("source"))
-        key = (session_id, source)
-        if key in latest_progress_by_key:
-            continue
-        latest_progress_by_key[key] = item
-
-    recovered_any = False
-    for (session_id, source), progress_item in latest_progress_by_key.items():
-        if (session_id, source) in saved_keys:
-            continue
-
-        status = _normalize_video_upload_status(progress_item.get("status"))
-        progress_percent = _clamp_progress_percent(progress_item.get("progress_percent"), default=0)
-        if status not in {"processing", "error", "complete"} and progress_percent < 90:
-            continue
-
-        filename = str(progress_item.get("filename") or "").strip()
-        total_bytes = _coerce_non_negative_int(progress_item.get("total_bytes"))
-        recovered_info: dict[str, object] | None = None
-        for candidate_filename in _candidate_recovery_filenames(attempt_id, session_id, source, filename):
-            try:
-                remote_info = await get_cloudflare_video_details(
-                    filename=candidate_filename,
-                    source=source,
-                    fallback_size=total_bytes,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to reconcile Cloudflare video for attempt %s source %s filename %s: %s",
-                    attempt_id,
-                    source,
-                    candidate_filename,
-                    exc,
-                )
-                continue
-
-            if not remote_info or not str(remote_info.get("url") or "").strip():
-                continue
-
-            recovered_payload = {
-                **remote_info,
-                "provider": "cloudflare",
-                "session_id": session_id,
-                "source": source,
-                "size": int(remote_info.get("size") or total_bytes or 0),
-            }
-            recovered_info = _build_registered_video_info(
-                attempt_id,
-                recovered_payload,
-                session_id=session_id,
-                source=source,
-            )
-            break
-
-        if not recovered_info:
-            continue
-
-        event = ProctoringEvent(
-            attempt_id=attempt_id,
-            event_type="VIDEO_SAVED",
-            severity=SeverityEnum.LOW,
-            detail=f"Proctoring {source} video recovered",
-            meta=recovered_info,
-            occurred_at=datetime.now(timezone.utc),
-        )
-        db.add(event)
-        saved_keys.add((session_id, source))
-        recovered_any = True
-
-    if recovered_any:
-        db.commit()
-
-
 _VIDEO_BATCH_EVENT_TYPES = (
     "VIDEO_BATCH_ANALYSIS_QUEUED",
     "VIDEO_BATCH_ANALYSIS_COMPLETED",
@@ -753,81 +581,6 @@ async def _build_video_upload_response(
             or _build_video_job_status_url(attempt_id, str(job_info.get("job_id") or ""))
         )
     return JSONResponse(status_code=status_code, content=payload)
-
-
-def _build_registered_video_info(
-    attempt_id: str,
-    payload: Mapping[str, object] | None,
-    *,
-    session_id: str,
-    source: str,
-) -> dict[str, object]:
-    raw = dict(payload or {})
-    remote = raw.get("remote")
-    remote = remote if isinstance(remote, dict) else {}
-    provider = str(raw.get("provider") or remote.get("provider") or _video_storage_provider()).strip().lower()
-    if provider and provider != "cloudflare":
-        raise HTTPException(status_code=400, detail=_t("provider_must_be_cloudflare"))
-
-    name = str(raw.get("name") or remote.get("name") or "").strip()
-    if not name:
-        extension = str(raw.get("extension") or "webm").replace(".", "").lower() or "webm"
-        name = _video_filename(attempt_id, session_id, source, extension)
-
-    created_at = raw.get("created_at") or remote.get("created_at") or remote.get("created")
-    if not created_at:
-        created_at = datetime.now(timezone.utc).isoformat()
-
-    recording_started_at = _normalize_iso_datetime(raw.get("recording_started_at"))
-    recording_stopped_at = _normalize_iso_datetime(raw.get("recording_stopped_at"))
-
-    playback_url = str(raw.get("playback_url") or raw.get("url") or remote.get("playback_url") or remote.get("url") or "").strip()
-    uid = str(raw.get("uid") or remote.get("uid") or "").strip()
-    if not playback_url:
-        raise HTTPException(status_code=400, detail=_t("playback_url_required"))
-    if not _is_absolute_http_url(playback_url):
-        raise HTTPException(status_code=400, detail=_t("playback_url_invalid"))
-
-    playback_type = str(raw.get("playback_type") or "").strip().lower()
-    if not playback_type:
-        playback_type = "hls" if playback_url.endswith(".m3u8") else "direct"
-
-    status = str(raw.get("status") or remote.get("status") or "").strip().lower()
-    ready_to_stream = infer_cloudflare_ready_to_stream(
-        status=status,
-        ready_to_stream=raw.get("ready_to_stream", remote.get("ready_to_stream")),
-        playback_url=playback_url,
-    )
-
-    file_info = {
-        "provider": "cloudflare",
-        "name": name,
-        "url": playback_url,
-        "playback_url": playback_url,
-        "playback_type": playback_type,
-        "size": int(raw.get("size") or remote.get("size") or 0),
-        "source": source,
-        "session_id": session_id,
-        "created_at": created_at,
-        "ready_to_stream": bool(ready_to_stream),
-        "status": status or ("ready" if ready_to_stream else "processing"),
-    }
-
-    thumbnail = raw.get("thumbnail") or remote.get("thumbnail")
-    duration = raw.get("duration") or remote.get("duration")
-    if uid:
-        file_info["uid"] = uid
-    if thumbnail:
-        file_info["thumbnail"] = thumbnail
-    if duration not in (None, ""):
-        file_info["duration"] = duration
-    if recording_started_at:
-        file_info["recording_started_at"] = recording_started_at
-    if recording_stopped_at:
-        file_info["recording_stopped_at"] = recording_stopped_at
-    if remote:
-        file_info["remote"] = remote
-    return file_info
 
 
 async def _build_supabase_video_info(
@@ -1813,42 +1566,7 @@ async def upload_video_capture(
     file_info: dict[str, object]
     response_detail = "video uploaded"
     try:
-        if provider == "cloudflare":
-            try:
-                remote = await upload_video_to_cloudflare(
-                    temp_path,
-                    filename=safe_filename,
-                    source=normalized_source,
-                )
-            except Exception as exc:
-                logger.exception("Cloudflare video upload failed for attempt %s", attempt_id)
-                raise HTTPException(status_code=502, detail=_t("cf_upload_failed")) from exc
-            file_info = _build_registered_video_info(
-                attempt_id,
-                {
-                    "provider": "cloudflare",
-                    "session_id": session_id,
-                    "source": normalized_source,
-                    "extension": extension,
-                    "name": remote.get("name") or safe_filename,
-                    "url": remote.get("url") or remote.get("playback_url"),
-                    "playback_url": remote.get("playback_url") or remote.get("url"),
-                    "playback_type": remote.get("playback_type"),
-                    "thumbnail": remote.get("thumbnail"),
-                    "uid": remote.get("uid"),
-                    "status": remote.get("status"),
-                    "ready_to_stream": remote.get("ready_to_stream"),
-                    "duration": remote.get("duration"),
-                    "size": remote.get("size") or upload_size,
-                    "created_at": remote.get("created_at"),
-                    "recording_started_at": normalized_recording_started_at,
-                    "recording_stopped_at": normalized_recording_stopped_at,
-                    "remote": remote.get("remote") if isinstance(remote.get("remote"), dict) else remote,
-                },
-                session_id=session_id,
-                source=normalized_source,
-            )
-        elif provider == "supabase":
+        if provider == "supabase":
             file_info = await _build_supabase_video_info(
                 attempt_id,
                 session_id=session_id,
@@ -1906,66 +1624,6 @@ async def upload_video_capture(
     return await _build_video_upload_response(
         attempt_id,
         detail=response_detail,
-        file_info=file_info,
-        job_info=job_info,
-        status_code=202 if job_info else 200,
-    )
-
-
-@router.post("/{attempt_id}/video/register", response_model=ProctoringVideoUploadResponse)
-async def register_video_capture(
-    attempt_id: str,
-    payload: dict = Body(...),
-    db: Session = Depends(get_db_dep),
-    current=Depends(get_current_user),
-):
-    _attempt_or_forbidden(attempt_id, db, current)
-    _require_cloudflare_video_storage()
-
-    session_id = str(payload.get("session_id") or "").strip()
-    if not session_id:
-        raise HTTPException(status_code=400, detail=_t("session_id_required"))
-    source = _normalize_video_source(payload.get("source"))
-
-    existing_file_info = _find_saved_video_file_info(db, attempt_id, session_id, source)
-    if existing_file_info:
-        existing_job = _find_video_batch_info(db, attempt_id, session_id, source)
-        existing_status = str(existing_job.get("status") or "").upper() if existing_job else ""
-        return await _build_video_upload_response(
-            attempt_id,
-            detail="video already registered",
-            file_info=existing_file_info,
-            job_info=existing_job,
-            status_code=202 if existing_status in {"QUEUED", "PROCESSING"} else 200,
-        )
-
-    file_info = _build_registered_video_info(attempt_id, payload, session_id=session_id, source=source)
-    event = ProctoringEvent(
-        attempt_id=attempt_id,
-        event_type="VIDEO_SAVED",
-        severity=SeverityEnum.LOW,
-        detail=f"Proctoring {source} video saved",
-        meta=file_info,
-        occurred_at=datetime.now(timezone.utc),
-    )
-    db.add(event)
-    db.commit()
-    job_info: dict[str, object] | None = None
-    if video_batch_analysis_enabled():
-        try:
-            queued_job = enqueue_video_batch_analysis(attempt_id, file_info)
-            if queued_job:
-                queued_job["analysis_status_url"] = _build_video_job_status_url(attempt_id, str(queued_job.get("job_id") or ""))
-                _queue_video_batch_event(db, attempt_id=attempt_id, file_info=file_info, job_info=queued_job)
-                job_info = queued_job
-        except Exception as exc:
-            logger.warning("Failed to queue registered video batch analysis for attempt %s: %s", attempt_id, exc)
-            with contextlib.suppress(Exception):
-                db.rollback()
-
-    return await _build_video_upload_response(
-        attempt_id,
-        detail="video registered" if not job_info else "video registered and batch analysis queued",
         file_info=file_info,
         job_info=job_info,
         status_code=202 if job_info else 200,
@@ -2117,7 +1775,6 @@ async def list_videos(
     current=Depends(get_current_user),
 ):
     _attempt_or_forbidden(attempt_id, db, current)
-    await _recover_missing_cloudflare_videos(db, attempt_id)
     result: list[dict[str, object]] = []
     seen_keys: set[tuple[str, str]] = set()
 

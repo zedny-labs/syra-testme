@@ -58,7 +58,7 @@ def test_recording_rows_mark_failed_saved_video_as_error() -> None:
 
 def test_build_findings_treats_storage_error_as_failure() -> None:
     findings = _build_findings({
-        "provider": "cloudflare",
+        "provider": "vimeo",
         "source": "camera",
         "status": "error",
         "size": 22,

@@ -49,7 +49,7 @@ export default defineConfig({
         E2E_SEED_ENABLED: process.env.E2E_SEED_ENABLED || 'true',
         PRECHECK_ALLOW_TEST_BYPASS: process.env.PRECHECK_ALLOW_TEST_BYPASS || 'true',
         MEDIA_STORAGE_PROVIDER: process.env.MEDIA_STORAGE_PROVIDER || 'local',
-        PROCTORING_VIDEO_STORAGE_PROVIDER: process.env.PROCTORING_VIDEO_STORAGE_PROVIDER || 'cloudflare',
+        PROCTORING_VIDEO_STORAGE_PROVIDER: process.env.PROCTORING_VIDEO_STORAGE_PROVIDER || 'supabase',
       },
     },
     {

@@ -2,8 +2,8 @@
 //
 // On a standard Vimeo account the API does not expose progressive/HLS file URLs,
 // so playback goes through Vimeo's embed player (an <iframe>) rather than the
-// <video>/HLS.js path used for Cloudflare and Supabase recordings. These helpers
-// keep that detection and URL shaping in one testable place.
+// <video>/HLS.js path used for Supabase recordings. These helpers keep that
+// detection and URL shaping in one testable place.
 
 export function isVimeoEmbedUrl(url) {
   return /player\.vimeo\.com\/video\//i.test(String(url || ''))

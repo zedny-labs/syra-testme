@@ -56,7 +56,7 @@ def main():
         attempt = resolve_attempt(session, args.attempt_id, args.owner_email)
         now = datetime.now(timezone.utc)
         meta = {
-            "provider": "cloudflare",
+            "provider": "supabase",
             "playback_url": args.url,
             "url": args.url,
             "status": "ready",

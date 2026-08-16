@@ -679,7 +679,7 @@ export default function AdminAttemptVideos() {
 
   // Vimeo recordings play in an embed iframe. Drive it with the Vimeo Player SDK
   // so the warning timeline keeps working (seek-to-moment + live currentTime),
-  // exactly like the <video> element does for Cloudflare/Supabase recordings.
+  // exactly like the <video> element does for Supabase recordings.
   useEffect(() => {
     if (!selectedVideoIsVimeo || !selectedVideoUrl) return undefined
     const iframe = vimeoIframeRef.current

@@ -29,9 +29,13 @@ def test_provider_normalizes_case_and_whitespace():
     assert s.PROCTORING_VIDEO_STORAGE_PROVIDER == "vimeo"
 
 
-def test_provider_still_accepts_cloudflare_and_supabase():
-    assert _settings(PROCTORING_VIDEO_STORAGE_PROVIDER="cloudflare").PROCTORING_VIDEO_STORAGE_PROVIDER == "cloudflare"
+def test_provider_still_accepts_supabase():
     assert _settings(PROCTORING_VIDEO_STORAGE_PROVIDER="supabase").PROCTORING_VIDEO_STORAGE_PROVIDER == "supabase"
+
+
+def test_provider_coerces_legacy_cloudflare_to_vimeo():
+    # Cloudflare support was removed; a stale deployed value should not crash boot.
+    assert _settings(PROCTORING_VIDEO_STORAGE_PROVIDER="cloudflare").PROCTORING_VIDEO_STORAGE_PROVIDER == "vimeo"
 
 
 def test_provider_rejects_unknown():

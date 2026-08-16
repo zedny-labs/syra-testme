@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     PROCTORING_EVIDENCE_RETENTION_DAYS: int = Field(default=90, ge=1)
     MAX_VIDEO_UPLOAD_MB: int = Field(default=512, ge=16, le=4096)
     MEDIA_STORAGE_PROVIDER: str = Field(default="local")
-    PROCTORING_VIDEO_STORAGE_PROVIDER: str = Field(default="cloudflare")
+    PROCTORING_VIDEO_STORAGE_PROVIDER: str = Field(default="vimeo")
     PROCTORING_INFERENCE_MODE: str = Field(default="local")
     AI_INFERENCE_URL: str = Field(default="http://127.0.0.1:8081")
     PROCTORING_INFERENCE_QUEUE: str = Field(default="proctoring-inference")
@@ -85,11 +85,6 @@ class Settings(BaseSettings):
     SENTRY_DSN: str | None = None
     THREADPOOL_SIZE: int = Field(default=40, ge=10)
     MAINTENANCE_CACHE_TTL_SECONDS: float = Field(default=300.0, ge=60.0)
-    CLOUDFLARE_MEDIA_API_BASE_URL: str = Field(default="")
-    CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS: bool = False
-    CLOUDFLARE_STREAM_SIGNING_KEY: str = Field(default="")
-    CLOUDFLARE_STREAM_KEY_ID: str = Field(default="")
-    CLOUDFLARE_MEDIA_WATERMARK_UID: str | None = None
     SUPABASE_URL: str | None = None
     SUPABASE_PUBLISHABLE_KEY: str | None = None
     SUPABASE_SECRET_KEY: str | None = None
@@ -185,9 +180,13 @@ class Settings(BaseSettings):
     @field_validator("PROCTORING_VIDEO_STORAGE_PROVIDER")
     @classmethod
     def normalize_video_storage_provider(cls, value: str) -> str:
-        normalized = str(value or "cloudflare").strip().lower()
-        if normalized not in {"cloudflare", "supabase", "vimeo"}:
-            raise ValueError("PROCTORING_VIDEO_STORAGE_PROVIDER must be 'cloudflare', 'supabase', or 'vimeo'")
+        normalized = str(value or "vimeo").strip().lower()
+        if normalized == "cloudflare":
+            # Cloudflare support was removed; coerce any stale deployed config
+            # instead of refusing to boot on it.
+            normalized = "vimeo"
+        if normalized not in {"supabase", "vimeo"}:
+            raise ValueError("PROCTORING_VIDEO_STORAGE_PROVIDER must be 'supabase' or 'vimeo'")
         return normalized
 
     @field_validator("VIMEO_PRIVACY_VIEW")
@@ -237,16 +236,6 @@ class Settings(BaseSettings):
             return None
         normalized = str(value).strip()
         return normalized or None
-
-    @field_validator("CLOUDFLARE_MEDIA_API_BASE_URL", mode="before")
-    @classmethod
-    def normalize_cloudflare_media_api_base_url(cls, value: str | None) -> str:
-        normalized = str(value or "").strip().rstrip("/")
-        if not normalized:
-            return ""
-        if not normalized.startswith(("http://", "https://")):
-            raise ValueError("CLOUDFLARE_MEDIA_API_BASE_URL must start with http:// or https://")
-        return normalized
 
     @field_validator("SUPABASE_URL", mode="before")
     @classmethod

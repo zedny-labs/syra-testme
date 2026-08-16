@@ -60,9 +60,8 @@ Environment overrides:
 - SYRA_BREVO_BASE_URL
 - SYRA_BREVO_SANDBOX
 - SYRA_MEDIA_STORAGE_PROVIDER=local|supabase
-- SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER=cloudflare|supabase
-- SYRA_CLOUDFLARE_MEDIA_API_BASE_URL
-- SYRA_CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS
+- SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER=vimeo|supabase
+- SYRA_VIMEO_ACCESS_TOKEN
 - SYRA_DB_CONNECT_RETRIES
 - SYRA_DB_CONNECT_RETRY_DELAY_SECONDS
 - SYRA_DB_MIGRATION_TIMEOUT_SECONDS
@@ -502,7 +501,6 @@ existing_root_public_backend_url="$(read_env_value "$ROOT_ENV" "PUBLIC_BACKEND_B
 existing_root_cors_origins="$(read_env_value "$ROOT_ENV" "CORS_ORIGINS")"
 existing_root_media_storage_provider="$(read_env_value "$ROOT_ENV" "MEDIA_STORAGE_PROVIDER")"
 existing_root_video_storage_provider="$(read_env_value "$ROOT_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER")"
-existing_root_cloudflare_media_api_base_url="$(read_env_value "$ROOT_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL")"
 existing_root_workers="$(read_env_value "$ROOT_ENV" "WORKERS")"
 existing_root_nginx_client_max_body_size="$(read_env_value "$ROOT_ENV" "NGINX_CLIENT_MAX_BODY_SIZE")"
 existing_root_vite_api_base_url="$(read_env_value "$ROOT_ENV" "VITE_API_BASE_URL")"
@@ -519,7 +517,6 @@ existing_brevo_sender_name="$(read_env_value "$BACKEND_ENV" "BREVO_SENDER_NAME")
 existing_brevo_sandbox="$(read_env_value "$BACKEND_ENV" "BREVO_SANDBOX")"
 existing_media_storage_provider="$(read_env_value "$BACKEND_ENV" "MEDIA_STORAGE_PROVIDER")"
 existing_video_storage_provider="$(read_env_value "$BACKEND_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER")"
-existing_cloudflare_media_api_base_url="$(read_env_value "$BACKEND_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL")"
 existing_vimeo_access_token="$(read_env_value "$BACKEND_ENV" "VIMEO_ACCESS_TOKEN")"
 existing_root_vimeo_access_token="$(read_env_value "$ROOT_ENV" "VIMEO_ACCESS_TOKEN")"
 existing_workers="$(read_env_value "$BACKEND_ENV" "WORKERS")"
@@ -552,7 +549,6 @@ BREVO_SENDER_NAME="${SYRA_BREVO_SENDER_NAME:-$(first_non_empty "$existing_brevo_
 BREVO_SANDBOX="${SYRA_BREVO_SANDBOX:-$(first_non_empty "$existing_brevo_sandbox" "false")}"
 MEDIA_STORAGE_PROVIDER="${SYRA_MEDIA_STORAGE_PROVIDER:-$(first_non_empty "$existing_media_storage_provider" "$existing_root_media_storage_provider" "local")}"
 NGINX_CLIENT_MAX_BODY_SIZE="${SYRA_NGINX_CLIENT_MAX_BODY_SIZE:-$(first_non_empty "$existing_nginx_client_max_body_size" "$existing_root_nginx_client_max_body_size" "512m")}"
-CLOUDFLARE_MEDIA_API_BASE_URL="${SYRA_CLOUDFLARE_MEDIA_API_BASE_URL:-$(first_non_empty "$existing_cloudflare_media_api_base_url" "$existing_root_cloudflare_media_api_base_url" "")}"
 PROCTORING_VIDEO_STORAGE_PROVIDER="${SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER:-$(first_non_empty "$existing_video_storage_provider" "$existing_root_video_storage_provider" "")}"
 VIMEO_ACCESS_TOKEN="${SYRA_VIMEO_ACCESS_TOKEN:-$(first_non_empty "$existing_vimeo_access_token" "$existing_root_vimeo_access_token" "")}"
 
@@ -655,33 +651,20 @@ else
   WEB_REPORT_SCHEDULER_ENABLED="false"
 fi
 
-if [[ -n "${SYRA_CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS:-}" ]]; then
-  CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS="${SYRA_CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS}"
-else
-  # Temporarily disabled until CLOUDFLARE_STREAM_SIGNING_KEY is configured.
-  # Re-enable by setting SYRA_CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS=true
-  CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS="false"
-fi
-
 if [[ -z "$PROCTORING_VIDEO_STORAGE_PROVIDER" ]]; then
-  if [[ -n "$CLOUDFLARE_MEDIA_API_BASE_URL" ]]; then
-    PROCTORING_VIDEO_STORAGE_PROVIDER="cloudflare"
+  if [[ -n "$VIMEO_ACCESS_TOKEN" ]]; then
+    PROCTORING_VIDEO_STORAGE_PROVIDER="vimeo"
   else
     PROCTORING_VIDEO_STORAGE_PROVIDER="supabase"
   fi
 fi
 PROCTORING_VIDEO_STORAGE_PROVIDER="$(printf '%s' "$PROCTORING_VIDEO_STORAGE_PROVIDER" | tr '[:upper:]' '[:lower:]')"
+if [[ "$PROCTORING_VIDEO_STORAGE_PROVIDER" == "cloudflare" ]]; then
+  log "WARNING: Cloudflare proctoring video storage was removed. Using vimeo instead of the persisted 'cloudflare' setting."
+  PROCTORING_VIDEO_STORAGE_PROVIDER="vimeo"
+fi
 
 case "$PROCTORING_VIDEO_STORAGE_PROVIDER" in
-  cloudflare)
-    if [[ -z "$CLOUDFLARE_MEDIA_API_BASE_URL" ]]; then
-      log "WARNING: Cloudflare storage was selected without SYRA_CLOUDFLARE_MEDIA_API_BASE_URL."
-      log "Falling back to supabase proctoring video storage."
-      PROCTORING_VIDEO_STORAGE_PROVIDER="supabase"
-    else
-      log "Using Cloudflare proctoring video storage."
-    fi
-    ;;
   supabase)
     log "Using Supabase proctoring video storage."
     ;;
@@ -695,7 +678,7 @@ case "$PROCTORING_VIDEO_STORAGE_PROVIDER" in
     fi
     ;;
   *)
-    die "Unsupported SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER: ${PROCTORING_VIDEO_STORAGE_PROVIDER}. Use 'cloudflare', 'supabase', or 'vimeo'."
+    die "Unsupported SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER: ${PROCTORING_VIDEO_STORAGE_PROVIDER}. Use 'supabase' or 'vimeo'."
     ;;
 esac
 
@@ -802,8 +785,6 @@ set_env_value "$ROOT_ENV" "PRECHECK_ALLOW_TEST_BYPASS" "$PRECHECK_ALLOW_TEST_BYP
 set_env_value "$ROOT_ENV" "WEB_REPORT_SCHEDULER_ENABLED" "$WEB_REPORT_SCHEDULER_ENABLED"
 set_env_value "$ROOT_ENV" "MEDIA_STORAGE_PROVIDER" "$MEDIA_STORAGE_PROVIDER"
 set_env_value "$ROOT_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER" "$PROCTORING_VIDEO_STORAGE_PROVIDER"
-set_env_value "$ROOT_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL" "$CLOUDFLARE_MEDIA_API_BASE_URL"
-set_env_value "$ROOT_ENV" "CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS" "$CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS"
 
 set_env_value "$BACKEND_LOCAL_ENV" "DATABASE_URL" "$APP_DATABASE_URL"
 set_env_value "$BACKEND_LOCAL_ENV" "DATABASE_MIGRATION_URL" "$APP_DATABASE_MIGRATION_URL"
@@ -827,8 +808,6 @@ fi
 set_env_value "$BACKEND_LOCAL_ENV" "MAX_VIDEO_UPLOAD_MB" "512"
 set_env_value "$BACKEND_LOCAL_ENV" "MEDIA_STORAGE_PROVIDER" "$MEDIA_STORAGE_PROVIDER"
 set_env_value "$BACKEND_LOCAL_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER" "$PROCTORING_VIDEO_STORAGE_PROVIDER"
-set_env_value "$BACKEND_LOCAL_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL" "$CLOUDFLARE_MEDIA_API_BASE_URL"
-set_env_value "$BACKEND_LOCAL_ENV" "CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS" "$CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS"
 
 set_env_value "$BACKEND_ENV" "DATABASE_URL" "$APP_DATABASE_URL"
 set_env_value "$BACKEND_ENV" "DATABASE_MIGRATION_URL" "$APP_DATABASE_MIGRATION_URL"
@@ -844,11 +823,9 @@ set_env_value "$BACKEND_ENV" "BREVO_SANDBOX" "$BREVO_SANDBOX"
 set_env_value "$BACKEND_ENV" "AUTO_APPLY_MIGRATIONS" "$AUTO_APPLY_MIGRATIONS_VALUE"
 set_env_value "$BACKEND_ENV" "MEDIA_STORAGE_PROVIDER" "$MEDIA_STORAGE_PROVIDER"
 set_env_value "$BACKEND_ENV" "PROCTORING_VIDEO_STORAGE_PROVIDER" "$PROCTORING_VIDEO_STORAGE_PROVIDER"
-set_env_value "$BACKEND_ENV" "CLOUDFLARE_MEDIA_API_BASE_URL" "$CLOUDFLARE_MEDIA_API_BASE_URL"
 if [[ -n "$VIMEO_ACCESS_TOKEN" ]]; then
   set_env_value "$BACKEND_ENV" "VIMEO_ACCESS_TOKEN" "$VIMEO_ACCESS_TOKEN"
 fi
-set_env_value "$BACKEND_ENV" "CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS" "$CLOUDFLARE_MEDIA_REQUIRE_SIGNED_URLS"
 set_env_value "$BACKEND_ENV" "PRECHECK_ALLOW_TEST_BYPASS" "$PRECHECK_ALLOW_TEST_BYPASS"
 set_env_value "$BACKEND_ENV" "WEB_REPORT_SCHEDULER_ENABLED" "$WEB_REPORT_SCHEDULER_ENABLED"
 set_env_value "$BACKEND_ENV" "WORKERS" "$WORKERS"

@@ -13,7 +13,7 @@ def test_get_proctoring_video_job_status_returns_completed_payload(monkeypatch) 
     payload = {
         "status": "COMPLETED",
         "detail": "Video uploaded successfully.",
-        "file": {"provider": "cloudflare", "source": "camera"},
+        "file": {"provider": "vimeo", "source": "camera"},
         "completed_at": "2026-03-29T12:00:00Z",
     }
     monkeypatch.setattr(
@@ -30,7 +30,7 @@ def test_get_proctoring_video_job_status_returns_completed_payload(monkeypatch) 
         "detail": "Video uploaded successfully.",
         "findings": [],
         "summary": {},
-        "file": {"provider": "cloudflare", "source": "camera"},
+        "file": {"provider": "vimeo", "source": "camera"},
         "completed_at": "2026-03-29T12:00:00Z",
     }
 

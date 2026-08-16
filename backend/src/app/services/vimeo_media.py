@@ -1,7 +1,7 @@
 """Vimeo storage provider for proctoring recordings.
 
-Mirrors the shape of ``cloudflare_media``/``supabase_storage`` so the proctoring
-video pipeline can treat Vimeo as an interchangeable ``PROCTORING_VIDEO_STORAGE_PROVIDER``.
+Mirrors the shape of ``supabase_storage`` so the proctoring video pipeline can
+treat Vimeo as an interchangeable ``PROCTORING_VIDEO_STORAGE_PROVIDER``.
 
 Uploads use Vimeo's resumable ``tus`` approach: create the video resource
 (``POST /me/videos``) then stream the file to the returned ``upload_link``. On a

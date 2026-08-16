@@ -97,7 +97,7 @@ if (-not $SkipFrontendE2E) {
         $env:BACKEND_BASE_URL = "http://127.0.0.1:8001"
         $env:FRONTEND_BASE_URL = "http://127.0.0.1:5174"
         $env:MEDIA_STORAGE_PROVIDER = "local"
-        $env:PROCTORING_VIDEO_STORAGE_PROVIDER = "cloudflare"
+        $env:PROCTORING_VIDEO_STORAGE_PROVIDER = "supabase"
 
         $e2eDatabaseOutput = & $python $testDbManager create-isolated
         if ($LASTEXITCODE -ne 0) {

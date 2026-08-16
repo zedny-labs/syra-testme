@@ -52,12 +52,12 @@ def test_task_build_uploaded_file_info_uses_remote_provider():
     assert info["url"] == EMBED
 
 
-def test_task_build_uploaded_file_info_defaults_to_cloudflare():
+def test_task_build_uploaded_file_info_defaults_to_vimeo():
     info = tasks._build_uploaded_file_info(
         remote={"name": "c.webm", "url": "https://x/y.m3u8", "playback_url": "https://x/y.m3u8", "playback_type": "hls", "size": 5},
         upload_request={"session_id": "s1", "source": "camera", "filename": "c.webm", "extension": "webm", "size": 5},
     )
-    assert info["provider"] == "cloudflare"
+    assert info["provider"] == "vimeo"
 
 
 # ---- routes: saved-meta normalization -----------------------------------

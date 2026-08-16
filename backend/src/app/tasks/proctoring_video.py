@@ -15,7 +15,6 @@ from ..core.celery_app import celery_app
 from ..core.config import get_settings
 from ..db.session import SessionLocal
 from ..models import ProctoringEvent, SeverityEnum
-from ..services.cloudflare_media import get_cloudflare_video_details, upload_video_to_cloudflare
 from ..services.vimeo_media import get_vimeo_video_details, upload_video_to_vimeo
 
 logger = logging.getLogger(__name__)
@@ -39,8 +38,8 @@ def _run_async(coro):
 BASE_STORAGE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "storage"
 VIDEO_UPLOAD_SPOOL_DIR = BASE_STORAGE_DIR / "video_uploads"
 
-_CLOUDFLARE_REFRESH_ATTEMPTS = 6
-_CLOUDFLARE_REFRESH_DELAY_SECONDS = 5
+_VIDEO_METADATA_REFRESH_ATTEMPTS = 6
+_VIDEO_METADATA_REFRESH_DELAY_SECONDS = 5
 _INVALID_VIDEO_STATUSES = {"error", "failed"}
 _UPLOAD_RETRY_LIMIT = 3
 
@@ -107,7 +106,7 @@ def _resolve_spool_path(raw_path: str) -> Path:
 
 def _build_uploaded_file_info(*, remote: Mapping[str, Any], upload_request: Mapping[str, Any]) -> dict[str, Any]:
     source = str(upload_request.get("source") or "camera").strip().lower() or "camera"
-    provider = str(remote.get("provider") or upload_request.get("provider") or "cloudflare").strip().lower() or "cloudflare"
+    provider = str(remote.get("provider") or upload_request.get("provider") or "vimeo").strip().lower() or "vimeo"
     file_info: dict[str, Any] = {
         "provider": provider,
         "session_id": str(upload_request.get("session_id") or "").strip(),
@@ -155,37 +154,6 @@ def _queue_video_batch_event(*, attempt_id: str, file_info: dict[str, Any], job_
     )
 
 
-def _refresh_cloudflare_info(file_info: dict[str, Any]) -> dict[str, Any]:
-    current = dict(file_info)
-    uid = str(current.get("uid") or "").strip()
-    name = str(current.get("name") or "").strip()
-    source = str(current.get("source") or "camera").strip().lower() or "camera"
-    size = max(0, _safe_int(current.get("size")))
-
-    for attempt in range(_CLOUDFLARE_REFRESH_ATTEMPTS):
-        try:
-            refreshed = _run_async(
-                get_cloudflare_video_details(
-                    uid=uid or None,
-                    filename=name or None,
-                    source=source,
-                    fallback_size=size,
-                )
-            )
-        except Exception as exc:
-            logger.warning("Cloudflare metadata refresh failed for %s: %s", uid or name or source, exc)
-            break
-
-        if refreshed:
-            current.update(refreshed)
-            current = _normalize_file_info(current)
-            if current.get("ready_to_stream"):
-                return current
-        if attempt < _CLOUDFLARE_REFRESH_ATTEMPTS - 1:
-            time.sleep(_CLOUDFLARE_REFRESH_DELAY_SECONDS)
-    return current
-
-
 def _refresh_vimeo_info(file_info: dict[str, Any]) -> dict[str, Any]:
     current = dict(file_info)
     uid = str(current.get("uid") or "").strip()
@@ -193,7 +161,7 @@ def _refresh_vimeo_info(file_info: dict[str, Any]) -> dict[str, Any]:
     source = str(current.get("source") or "camera").strip().lower() or "camera"
     size = max(0, _safe_int(current.get("size")))
 
-    for attempt in range(_CLOUDFLARE_REFRESH_ATTEMPTS):
+    for attempt in range(_VIDEO_METADATA_REFRESH_ATTEMPTS):
         try:
             refreshed = _run_async(
                 get_vimeo_video_details(uid=uid or None, uri=uri or None, source=source)
@@ -210,8 +178,8 @@ def _refresh_vimeo_info(file_info: dict[str, Any]) -> dict[str, Any]:
             current = _normalize_file_info(current)
             if current.get("ready_to_stream"):
                 return current
-        if attempt < _CLOUDFLARE_REFRESH_ATTEMPTS - 1:
-            time.sleep(_CLOUDFLARE_REFRESH_DELAY_SECONDS)
+        if attempt < _VIDEO_METADATA_REFRESH_ATTEMPTS - 1:
+            time.sleep(_VIDEO_METADATA_REFRESH_DELAY_SECONDS)
     return current
 
 
@@ -250,21 +218,21 @@ def _build_findings(file_info: dict[str, Any]) -> list[dict[str, Any]]:
             "detail": f"{source.title()} recording is short ({duration:.1f}s).",
         })
 
-    if provider == "cloudflare":
+    if provider == "vimeo":
         if status in _INVALID_VIDEO_STATUSES:
             findings.append({
                 "code": "VIDEO_STREAM_UNAVAILABLE",
                 "severity": "MEDIUM",
-                "detail": f"{source.title()} Cloudflare stream is unavailable because processing failed.",
+                "detail": f"{source.title()} Vimeo stream is unavailable because processing failed.",
             })
         else:
             findings.append({
                 "code": "VIDEO_STREAM_READY" if ready_to_stream else "VIDEO_TRANSCODING_PENDING",
                 "severity": "LOW",
                 "detail": (
-                    f"{source.title()} Cloudflare stream is ready for playback."
+                    f"{source.title()} Vimeo stream is ready for playback."
                     if ready_to_stream
-                    else f"{source.title()} Cloudflare stream is still processing."
+                    else f"{source.title()} Vimeo stream is still processing."
                 ),
             })
 
@@ -341,7 +309,7 @@ def upload_proctoring_video_capture(self: Task, attempt_id: str, upload_request:
     job_id = str(self.request.id or "")
     normalized_request = _normalize_upload_request(upload_request)
     source = str(normalized_request.get("source") or "camera")
-    provider = str(normalized_request.get("provider") or get_settings().PROCTORING_VIDEO_STORAGE_PROVIDER or "cloudflare").strip().lower()
+    provider = str(normalized_request.get("provider") or get_settings().PROCTORING_VIDEO_STORAGE_PROVIDER or "vimeo").strip().lower()
     spool_path = _resolve_spool_path(str(normalized_request.get("spool_path") or ""))
 
     if not spool_path.is_file():
@@ -349,10 +317,7 @@ def upload_proctoring_video_capture(self: Task, attempt_id: str, upload_request:
 
     filename = str(normalized_request.get("filename") or spool_path.name)
     try:
-        if provider == "vimeo":
-            remote = _run_async(upload_video_to_vimeo(spool_path, filename=filename, source=source))
-        else:
-            remote = _run_async(upload_video_to_cloudflare(spool_path, filename=filename, source=source))
+        remote = _run_async(upload_video_to_vimeo(spool_path, filename=filename, source=source))
     except Exception as exc:
         retries = int(self.request.retries or 0)
         if retries < _UPLOAD_RETRY_LIMIT:
@@ -421,9 +386,7 @@ def process_uploaded_proctoring_video(self: Task, attempt_id: str, file_info: di
     normalized_file = _normalize_file_info(file_info)
 
     try:
-        if normalized_file.get("provider") == "cloudflare":
-            normalized_file = _refresh_cloudflare_info(normalized_file)
-        elif normalized_file.get("provider") == "vimeo":
+        if normalized_file.get("provider") == "vimeo":
             normalized_file = _refresh_vimeo_info(normalized_file)
 
         findings = _build_findings(normalized_file)

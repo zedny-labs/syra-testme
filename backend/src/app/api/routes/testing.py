@@ -44,7 +44,7 @@ def seed_attempt_video(
     now = datetime.now(timezone.utc)
     filename = str(payload.get("filename") or f"{attempt_id}-{source}.webm")
     file_info = {
-        "provider": "cloudflare",
+        "provider": "supabase",
         "session_id": session_id,
         "source": source,
         "extension": "webm",
