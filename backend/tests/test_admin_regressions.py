@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 import uuid
 
+import pytest
 from sqlalchemy import String, cast, create_engine, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
@@ -29,12 +30,12 @@ from app.core.security import verify_password
 from app.modules.tests.enums import TestStatus
 from app.modules.tests.repository import TestListRow as AdminTestListRow, TestRepository as AdminTestRepository
 from app.modules.tests.schemas import TestUpdateDTO as AdminTestUpdateDTO
-from app.modules.tests.service import ServiceActor, TestService as AdminTestService
+from app.modules.tests.service import ServiceActor, TestService as AdminTestService, TestServiceError
 from app.modules.users.repository import UserRepository
 from app.modules.users.service import UserService
 from app.schemas import UserCreate
 from app.services import exam_compat_service, schedule_service
-from app.services.normalized_relations import set_exam_certificate
+from app.services.normalized_relations import exam_proctoring, mutate_exam_admin_meta, set_exam_certificate
 from app.utils.pagination import PaginationParams
 from app.api.routes.question_pools import _cleanup_pool_library_resources, _ensure_pool_library_exam
 from app.api.routes.courses import list_courses
@@ -292,6 +293,51 @@ def test_update_test_allows_explicit_certificate_clear() -> None:
         assert response.certificate is None
         assert exam.certificate is None
         assert exam.certificate_config_rel is None
+    finally:
+        db.close()
+
+
+def test_update_test_allows_proctoring_config_change_when_published() -> None:
+    db = _new_session()
+    try:
+        admin = _create_admin(db)
+        exam = _create_exam(db, owner=admin)
+        exam.status = ExamStatus.OPEN
+        mutate_exam_admin_meta(exam, published_at=_now())
+        db.commit()
+
+        service = AdminTestService(AdminTestRepository(db))
+        response = service.update_test(
+            test_id=str(exam.id),
+            body=AdminTestUpdateDTO(proctoring_config={"eye_deviation_deg": 15, "object_confidence_threshold": 0.5}),
+            actor=ServiceActor(id=admin.id, role=RoleEnum.ADMIN),
+            request_ip=None,
+        )
+
+        db.refresh(exam)
+        assert response.proctoring_config.get("eye_deviation_deg") == 15
+        assert exam_proctoring(exam).get("eye_deviation_deg") == 15
+    finally:
+        db.close()
+
+
+def test_update_test_still_blocks_all_fields_when_archived() -> None:
+    db = _new_session()
+    try:
+        admin = _create_admin(db)
+        exam = _create_exam(db, owner=admin)
+        mutate_exam_admin_meta(exam, archived_at=_now())
+        db.commit()
+
+        service = AdminTestService(AdminTestRepository(db))
+        with pytest.raises(TestServiceError) as exc_info:
+            service.update_test(
+                test_id=str(exam.id),
+                body=AdminTestUpdateDTO(name="New name"),
+                actor=ServiceActor(id=admin.id, role=RoleEnum.ADMIN),
+                request_ip=None,
+            )
+        assert exc_info.value.code == "LOCKED_FIELDS"
     finally:
         db.close()
 

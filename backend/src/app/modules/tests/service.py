@@ -641,16 +641,6 @@ class TestService:
         status = self._status(exam)
         if status == TestStatus.ARCHIVED:
             self._raise("LOCKED_FIELDS", "Archived tests are read-only", status_code=409)
-        if status == TestStatus.PUBLISHED:
-            allowed = {"name", "description", "report_displayed", "report_content", "ui_config"}
-            blocked = fields - allowed
-            if blocked:
-                self._raise(
-                    "LOCKED_FIELDS",
-                    "These fields are locked when published",
-                    status_code=409,
-                    details={"fields": sorted(blocked)},
-                )
 
     def _status(self, exam: Exam) -> TestStatus:
         return self._status_from_runtime(

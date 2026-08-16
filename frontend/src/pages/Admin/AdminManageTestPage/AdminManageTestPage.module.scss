@@ -771,6 +771,17 @@
   flex-wrap: wrap;
 }
 
+.settingsPublishWarning {
+  flex-basis: 100%;
+  margin: 0 0 0.15rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  font-size: 0.84rem;
+}
+
 .settingsCardHeader {
   display: flex;
   align-items: center;
