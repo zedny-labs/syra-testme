@@ -96,6 +96,7 @@ jobs:
                 "BREVO_API_KEY": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_API_KEY) }}'''),
                 "BREVO_SENDER_EMAIL": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_EMAIL) }}'''),
                 "BREVO_SENDER_NAME": json.loads(r'''${{ toJSON(secrets.SYRA_BREVO_SENDER_NAME) }}'''),
+                "VIMEO_ACCESS_TOKEN": json.loads(r'''${{ toJSON(secrets.SYRA_VIMEO_ACCESS_TOKEN) }}'''),
             }
 
             def upsert_env(path: Path, values: dict[str, str]) -> None:
@@ -132,6 +133,7 @@ jobs:
             export SYRA_SEED_LOGIN_USERS=1
             export SYRA_FRONTEND_URL="https://varexam.zedny.ai"
             export SYRA_BACKEND_URL="https://varexam.zedny.ai/api"
+            export SYRA_PROCTORING_VIDEO_STORAGE_PROVIDER="vimeo"
             export SYRA_DB_MIGRATION_TIMEOUT_SECONDS=240
             export SYRA_BACKEND_HEALTH_TIMEOUT_SECONDS=180
             export SYRA_FRONTEND_HEALTH_TIMEOUT_SECONDS=60
