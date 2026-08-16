@@ -61,6 +61,10 @@ def _make_handler(state, *, size):
             state["folder_put"] = str(request.url)
             return httpx.Response(204)
 
+        if request.method == "PATCH" and path == f"/videos/{VIDEO_ID}":
+            state["end_screen_patch"] = json.loads(request.content.decode() or "{}")
+            return httpx.Response(200, json={"uri": f"/videos/{VIDEO_ID}"})
+
         if request.method == "GET" and path == f"/videos/{VIDEO_ID}":
             return httpx.Response(
                 200,
@@ -150,6 +154,32 @@ def test_upload_creates_uploads_and_normalizes(tmp_path, monkeypatch):
     assert state["create_body"]["privacy"]["view"] == "unlisted"
     # all bytes uploaded via tus
     assert state["patched"] == len(data)
+    # end-of-clip "more videos" suggestions disabled (this Vimeo account hosts
+    # every student's recordings, so leaving them on could surface someone else's)
+    assert state["end_screen_patch"] == {"embed": {"end_screen": {"type": "nothing"}}}
+
+
+def test_upload_survives_end_screen_patch_failure(tmp_path, monkeypatch):
+    _use_settings(monkeypatch, VIMEO_ACCESS_TOKEN="tok")
+    data = b"hello-video-bytes"
+    f = tmp_path / "cam.webm"
+    f.write_bytes(data)
+    state = {"calls": []}
+    handler = _make_handler(state, size=len(data))
+
+    def failing_handler(request):
+        if request.method == "PATCH" and request.url.path == f"/videos/{VIDEO_ID}":
+            return httpx.Response(500, json={"error": "boom"})
+        return handler(request)
+
+    info = asyncio.run(
+        vimeo_media.upload_video_to_vimeo(
+            f, filename="cam.webm", source="camera", client=_client(failing_handler)
+        )
+    )
+
+    # a failed end-screen update is best-effort and must not fail the upload
+    assert info["uid"] == VIDEO_ID
 
 
 def test_upload_streams_in_tus_chunks(tmp_path, monkeypatch):

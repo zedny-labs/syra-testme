@@ -178,6 +178,23 @@ async def _add_to_folder(client: httpx.AsyncClient, video_id: str | None) -> Non
         logger.warning("Failed to file Vimeo video %s into folder %s: %s", video_id, folder_id, exc)
 
 
+async def _disable_end_screen(client: httpx.AsyncClient, video_id: str | None) -> None:
+    # This Vimeo account hosts every proctoring recording on the platform, so the
+    # default end-of-clip "More from <account>" suggestions could surface a
+    # *different* student's recording to whoever is reviewing this one. Turn it off.
+    if not video_id:
+        return
+    try:
+        response = await client.patch(
+            f"{API_BASE}/videos/{video_id}",
+            headers=_headers(),
+            json={"embed": {"end_screen": {"type": "nothing"}}},
+        )
+        response.raise_for_status()
+    except Exception as exc:  # best-effort: a failed update must not fail the upload
+        logger.warning("Failed to disable Vimeo end-screen suggestions for video %s: %s", video_id, exc)
+
+
 async def upload_video_to_vimeo(
     file_path: Path,
     *,
@@ -195,7 +212,9 @@ async def upload_video_to_vimeo(
         payload = await _create_video(client, filename=filename, size=file_size)
         upload_link = str((payload.get("upload") or {}).get("upload_link") or "")
         await _tus_upload(client, upload_link, file_path, file_size)
-        await _add_to_folder(client, _extract_video_id(payload.get("uri")))
+        video_id = _extract_video_id(payload.get("uri"))
+        await _add_to_folder(client, video_id)
+        await _disable_end_screen(client, video_id)
         return _normalize_remote_video(payload, source=source, fallback_size=file_size, name=filename)
     finally:
         if owns_client:
