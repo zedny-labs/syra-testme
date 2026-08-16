@@ -372,6 +372,12 @@
     z-index: 1000;
     visibility: hidden;
     pointer-events: none;
+
+    /* RTL: sidebar is inline-start-anchored (right edge), so the hidden
+       state must slide off toward the right, not the left. */
+    :global([dir='rtl']) & {
+      transform: translateX(100%);
+    }
   }
 
   .open {

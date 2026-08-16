@@ -27,6 +27,7 @@ from ...services.audit import write_audit_log
 from ...services.email import send_email
 from ...services.integrations import send_report_integration_event
 from ...services.normalized_relations import exam_archived_at, exam_code, is_exam_pool_library
+from ...services.pdf_fonts import shape_for_paragraph, shape_table_data
 from ...core.i18n import translate as _t
 from ...services.report_rendering import render_report_template
 from ...services.supabase_storage import upload_bytes as upload_bytes_to_supabase
@@ -251,7 +252,7 @@ class ReportService:
         styles = getSampleStyleSheet()
         story = []
 
-        story.append(Paragraph(f"<b>Test Report:</b> {exam.title or exam.id}", styles["Title"]))
+        story.append(Paragraph(f"<b>Test Report:</b> {shape_for_paragraph(str(exam.title or exam.id))}", styles["Title"]))
         story.append(Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}", styles["Normal"]))
 
         total_attempts = len(attempts)
@@ -269,6 +270,7 @@ class ReportService:
             ["Max attempts", getattr(exam, "max_attempts", ""), "Total attempts", total_attempts],
             ["Submitted", len(submitted), "Avg score / Pass rate", f"{avg_score} / {pass_rate}"],
         ]
+        summary_data, summary_arabic_cells = shape_table_data(summary_data)
         summary_table = Table(summary_data, hAlign="LEFT", colWidths=[80, 140, 90, 120])
         summary_table.setStyle(
             TableStyle(
@@ -278,6 +280,7 @@ class ReportService:
                     ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
                     ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    *summary_arabic_cells,
                 ]
             )
         )
@@ -313,6 +316,7 @@ class ReportService:
                     ["Alerts (H/M/L)", f"{high}/{med}/{low}"],
                     ["Total events", len(events)],
                 ]
+                info_rows, info_arabic_cells = shape_table_data(info_rows)
                 info_table = Table(info_rows, hAlign="LEFT", colWidths=[120, 360])
                 info_table.setStyle(
                     TableStyle(
@@ -322,6 +326,7 @@ class ReportService:
                             ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
                             ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                             ("FONTSIZE", (0, 0), (-1, -1), 9),
+                            *info_arabic_cells,
                         ]
                     )
                 )
@@ -334,6 +339,7 @@ class ReportService:
                     for event in events:
                         ts = event.occurred_at.strftime("%Y-%m-%d %H:%M:%S") if event.occurred_at else ""
                         event_data.append([ts, event.event_type, event.severity.value, event.detail or ""])
+                    event_data, event_arabic_cells = shape_table_data(event_data)
                     event_table = Table(event_data, hAlign="LEFT", colWidths=[110, 110, 70, 230])
                     event_table.setStyle(
                         TableStyle(
@@ -345,6 +351,7 @@ class ReportService:
                                 ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                                 ("FONTSIZE", (0, 0), (-1, -1), 8),
                                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                *event_arabic_cells,
                             ]
                         )
                     )

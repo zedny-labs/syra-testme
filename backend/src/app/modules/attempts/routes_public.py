@@ -58,6 +58,7 @@ from ...api.deps import ensure_exam_owner, ensure_permission, get_current_user, 
 from ...detection.face_verification import compute_face_signature
 from ...services.crypto_utils import encrypt_bytes
 from ...services.notifications import notify_user
+from ...services.pdf_fonts import draw_centred_shaped, draw_wrapped_centred_shaped
 from ...services.supabase_storage import upload_bytes as upload_bytes_to_supabase
 from ...modules.tests.proctoring_requirements import get_proctoring_requirements
 from ...utils.response_cache import TimedSingleFlightCache
@@ -1798,12 +1799,15 @@ def _draw_wrapped_centered(c, text, cx, y, font, size, max_width, color=None, le
         return y
     if color is not None:
         c.setFillColor(color)
-    c.setFont(font, size)
-    step = leading or size * 1.35
-    for line in simpleSplit(str(text), font, size, max_width):
-        c.drawCentredString(cx, y, line)
-        y -= step
-    return y
+    if leading is not None:
+        # Uncommon path: caller wants explicit line spacing. Keep it simple
+        # and skip Arabic shaping here rather than duplicating the wrap loop.
+        c.setFont(font, size)
+        for line in simpleSplit(str(text), font, size, max_width):
+            c.drawCentredString(cx, y, line)
+            y -= leading
+        return y
+    return draw_wrapped_centred_shaped(c, text, cx, y, font, size, max_width, simpleSplit)
 
 
 def _cert_classic(c, W, H, d) -> None:
@@ -1818,18 +1822,15 @@ def _cert_classic(c, W, H, d) -> None:
     c.setLineWidth(1)
     c.rect(m + 7, m + 7, W - 2 * m - 14, H - 2 * m - 14)
     c.setFillColor(navy)
-    c.setFont("Times-Bold", 30)
-    c.drawCentredString(cx, H * 0.80, d["title"])
+    draw_centred_shaped(c, cx, H * 0.80, d["title"], "Times-Bold", 30)
     if d["subtitle"]:
         c.setFillColor(gold)
-        c.setFont("Times-Italic", 14)
-        c.drawCentredString(cx, H * 0.755, d["subtitle"])
+        draw_centred_shaped(c, cx, H * 0.755, d["subtitle"], "Times-Italic", 14)
     c.setFillColor(grey)
     c.setFont("Times-Roman", 12)
     c.drawCentredString(cx, H * 0.655, "This is to certify that")
     c.setFillColor(navy)
-    c.setFont("Times-BoldItalic", 26)
-    c.drawCentredString(cx, H * 0.595, d["name"])
+    draw_centred_shaped(c, cx, H * 0.595, d["name"], "Times-BoldItalic", 26)
     c.setStrokeColor(gold)
     c.setLineWidth(1)
     c.line(cx - 0.22 * W, H * 0.575, cx + 0.22 * W, H * 0.575)
@@ -1837,8 +1838,7 @@ def _cert_classic(c, W, H, d) -> None:
     c.setFont("Times-Roman", 12)
     c.drawCentredString(cx, H * 0.515, "has successfully completed")
     c.setFillColor(navy)
-    c.setFont("Times-Bold", 17)
-    c.drawCentredString(cx, H * 0.470, d["exam"])
+    draw_centred_shaped(c, cx, H * 0.470, d["exam"], "Times-Bold", 17)
     y = _draw_wrapped_centered(c, d["description"], cx, H * 0.415, "Times-Italic", 11, 0.62 * W, colors.HexColor("#666666"))
     c.setFillColor(grey)
     c.setFont("Times-Roman", 11)
@@ -1847,11 +1847,9 @@ def _cert_classic(c, W, H, d) -> None:
     c.setLineWidth(1)
     c.line(cx - 0.16 * W, H * 0.19, cx + 0.16 * W, H * 0.19)
     c.setFillColor(navy)
-    c.setFont("Times-Bold", 12)
-    c.drawCentredString(cx, H * 0.165, d["signer"])
+    draw_centred_shaped(c, cx, H * 0.165, d["signer"], "Times-Bold", 12)
     c.setFillColor(colors.HexColor("#666666"))
-    c.setFont("Times-Roman", 10)
-    c.drawCentredString(cx, H * 0.14, d["issuer"])
+    draw_centred_shaped(c, cx, H * 0.14, d["issuer"], "Times-Roman", 10)
 
 
 def _cert_modern(c, W, H, d) -> None:
@@ -1863,24 +1861,20 @@ def _cert_modern(c, W, H, d) -> None:
     c.setFillColor(accent)
     c.rect(0, H - band, W, band, fill=1, stroke=0)
     c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 26)
-    c.drawCentredString(cx, H - band * 0.63, d["title"])
+    draw_centred_shaped(c, cx, H - band * 0.63, d["title"], "Helvetica-Bold", 26)
     if d["subtitle"]:
         c.setFillColor(accent)
-        c.setFont("Helvetica", 13)
-        c.drawCentredString(cx, H * 0.745, d["subtitle"])
+        draw_centred_shaped(c, cx, H * 0.745, d["subtitle"], "Helvetica", 13)
     c.setFillColor(muted)
     c.setFont("Helvetica", 11)
     c.drawCentredString(cx, H * 0.645, "PRESENTED TO")
     c.setFillColor(dark)
-    c.setFont("Helvetica-Bold", 26)
-    c.drawCentredString(cx, H * 0.585, d["name"])
+    draw_centred_shaped(c, cx, H * 0.585, d["name"], "Helvetica-Bold", 26)
     c.setFillColor(muted)
     c.setFont("Helvetica", 11)
     c.drawCentredString(cx, H * 0.505, "for successfully completing")
     c.setFillColor(accent)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(cx, H * 0.460, d["exam"])
+    draw_centred_shaped(c, cx, H * 0.460, d["exam"], "Helvetica-Bold", 16)
     y = _draw_wrapped_centered(c, d["description"], cx, H * 0.405, "Helvetica", 11, 0.64 * W, muted)
     c.setFillColor(dark)
     c.setFont("Helvetica", 11)
@@ -1889,11 +1883,9 @@ def _cert_modern(c, W, H, d) -> None:
     c.setLineWidth(2)
     c.line(cx - 0.15 * W, H * 0.18, cx + 0.15 * W, H * 0.18)
     c.setFillColor(dark)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(cx, H * 0.155, d["signer"])
+    draw_centred_shaped(c, cx, H * 0.155, d["signer"], "Helvetica-Bold", 12)
     c.setFillColor(muted)
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(cx, H * 0.13, d["issuer"])
+    draw_centred_shaped(c, cx, H * 0.13, d["issuer"], "Helvetica", 10)
 
 
 def _cert_simple(c, W, H, d) -> None:
@@ -1905,24 +1897,20 @@ def _cert_simple(c, W, H, d) -> None:
     c.setLineWidth(0.75)
     c.rect(m, m, W - 2 * m, H - 2 * m)
     c.setFillColor(dark)
-    c.setFont("Helvetica-Bold", 24)
-    c.drawCentredString(cx, H * 0.78, d["title"])
+    draw_centred_shaped(c, cx, H * 0.78, d["title"], "Helvetica-Bold", 24)
     if d["subtitle"]:
         c.setFillColor(muted)
-        c.setFont("Helvetica", 12)
-        c.drawCentredString(cx, H * 0.735, d["subtitle"])
+        draw_centred_shaped(c, cx, H * 0.735, d["subtitle"], "Helvetica", 12)
     c.setFillColor(muted)
     c.setFont("Helvetica", 11)
     c.drawCentredString(cx, H * 0.635, "This certifies that")
     c.setFillColor(dark)
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(cx, H * 0.575, d["name"])
+    draw_centred_shaped(c, cx, H * 0.575, d["name"], "Helvetica-Bold", 22)
     c.setFillColor(muted)
     c.setFont("Helvetica", 11)
     c.drawCentredString(cx, H * 0.495, "has completed")
     c.setFillColor(dark)
-    c.setFont("Helvetica-Bold", 15)
-    c.drawCentredString(cx, H * 0.450, d["exam"])
+    draw_centred_shaped(c, cx, H * 0.450, d["exam"], "Helvetica-Bold", 15)
     y = _draw_wrapped_centered(c, d["description"], cx, H * 0.395, "Helvetica", 10, 0.66 * W, muted)
     c.setFillColor(muted)
     c.setFont("Helvetica", 10)
@@ -1931,11 +1919,9 @@ def _cert_simple(c, W, H, d) -> None:
     c.setLineWidth(0.75)
     c.line(cx - 0.14 * W, H * 0.18, cx + 0.14 * W, H * 0.18)
     c.setFillColor(dark)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(cx, H * 0.155, d["signer"])
+    draw_centred_shaped(c, cx, H * 0.155, d["signer"], "Helvetica-Bold", 11)
     c.setFillColor(muted)
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(cx, H * 0.13, d["issuer"])
+    draw_centred_shaped(c, cx, H * 0.13, d["issuer"], "Helvetica", 9)
 
 
 _CERT_TEMPLATES = {"classic": _cert_classic, "modern": _cert_modern, "simple": _cert_simple}

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from ..models import Attempt, ProctoringEvent
 from ..modules.tests.proctoring_requirements import get_proctoring_requirements
 from ..services.crypto_utils import decrypt_bytes
+from ..services.pdf_fonts import shape_for_paragraph
 
 _logger = logging.getLogger(__name__)
 _IDENTITY_DIR = Path(__file__).resolve().parent.parent.parent / "storage" / "identity"
@@ -716,7 +717,7 @@ def _pdf_styles() -> dict[str, ParagraphStyle]:
 
 
 def _pdf_text(value: object) -> str:
-    return escape(str(value or ""))
+    return shape_for_paragraph(escape(str(value or "")))
 
 
 def _tone_hex(tone: str) -> str:

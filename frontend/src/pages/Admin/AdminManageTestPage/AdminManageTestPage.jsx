@@ -3885,12 +3885,12 @@ export default function AdminManageTestPage() {
     <div className={styles.page}>
       <div className={styles.breadcrumb}>
         <button type="button" className={styles.backBtn} onClick={() => navigate('/admin/tests')}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg className="rtl-flip" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
           {t('admin_manage_all_tests')}
         </button>
-        <span className={styles.breadcrumbSep}>›</span>
+        <span className={`${styles.breadcrumbSep} rtl-flip`}>›</span>
         <span className={styles.breadcrumbCurrent}>{exam.title}</span>
         <span className={`${styles.statusBadge} ${isPublished ? styles.statusPublished : isArchived ? styles.statusArchived : styles.statusDraft}`}>
           {isPublished ? t('published') : isArchived ? t('archived') : t('draft')}

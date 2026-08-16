@@ -151,11 +151,11 @@ export default function DateTimePicker({ value, onChange, disabled }) {
 
             <div className={styles.calHead}>
               <button type="button" className={styles.navBtn} aria-label="previous month" onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                <svg className="rtl-flip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
               <div className={styles.monthLabel}>{monthLabel}</div>
               <button type="button" className={styles.navBtn} aria-label="next month" onClick={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                <svg className="rtl-flip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
               </button>
             </div>
 

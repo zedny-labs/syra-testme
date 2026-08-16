@@ -26,7 +26,8 @@ export default function DashboardAnalytics({
   testStatusBreakdown,
   trendData,
 }) {
-  const { t } = useLanguage()
+  const { t, dir } = useLanguage()
+  const isRtl = dir === 'rtl'
   const maxRoleValue = roleDistribution.length ? Math.max(...roleDistribution.map((entry) => entry.value), 1) : 1
   const maxTestValue = testStatusBreakdown.length ? Math.max(...testStatusBreakdown.map((entry) => entry.value), 1) : 1
 
@@ -50,8 +51,8 @@ export default function DashboardAnalytics({
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} width={26} />
+                <XAxis dataKey="label" reversed={isRtl} tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} orientation={isRtl ? 'right' : 'left'} tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} width={26} />
                 <Tooltip content={<ChartTooltip formatter={(value) => `${value} ${t('admin_dash_analytics_attempts')}`} />} />
                 <Area
                   type="monotone"
@@ -126,8 +127,8 @@ export default function DashboardAnalytics({
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={scoreDistribution} margin={{ top: 12, right: 8, left: -12, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} width={26} />
+                <XAxis dataKey="label" reversed={isRtl} tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} orientation={isRtl ? 'right' : 'left'} tick={{ fill: 'var(--color-muted)', fontSize: 12 }} axisLine={false} tickLine={false} width={26} />
                 <Tooltip content={<ChartTooltip formatter={(value) => `${value} ${t('admin_dash_analytics_attempts')}`} />} />
                 <Bar dataKey="value" name={t('admin_dash_analytics_attempts')} radius={[8, 8, 0, 0]}>
                   {scoreDistribution.map((entry, index) => (
