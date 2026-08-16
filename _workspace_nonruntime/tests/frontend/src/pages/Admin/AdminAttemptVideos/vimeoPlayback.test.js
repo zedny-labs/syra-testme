@@ -42,4 +42,9 @@ describe('buildVimeoEmbedSrc', () => {
     expect(buildVimeoEmbedSrc('')).toBe('')
     expect(buildVimeoEmbedSrc(null)).toBe('')
   })
+
+  it('hides the native Vimeo control bar', () => {
+    const src = buildVimeoEmbedSrc('https://player.vimeo.com/video/123?h=abc123')
+    expect(src).toContain('controls=0')
+  })
 })

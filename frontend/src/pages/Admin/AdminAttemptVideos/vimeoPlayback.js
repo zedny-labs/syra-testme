@@ -26,5 +26,8 @@ export function buildVimeoEmbedSrc(url) {
   params.set('byline', '0')
   params.set('portrait', '0')
   params.set('title', '0')
+  // Native Vimeo controls are replaced by our own VimeoControlsBar component,
+  // driven by the @vimeo/player SDK this page already loads.
+  params.set('controls', '0')
   return `${base}?${params.toString()}`
 }
