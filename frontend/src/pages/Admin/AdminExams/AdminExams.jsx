@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { adminApi } from '../../../services/admin.service'
 import AdminPageHeader from '../AdminPageHeader/AdminPageHeader'
@@ -552,7 +553,7 @@ export default function AdminExams() {
                         >
                           {t('actions')}
                         </button>
-                        {openMenuId === test.id && (
+                        {openMenuId === test.id && typeof document !== 'undefined' && createPortal(
                           <div
                             className={styles.menu}
                             data-admin-test-menu
@@ -607,7 +608,8 @@ export default function AdminExams() {
                                 {t('delete')}
                               </button>
                             ))}
-                          </div>
+                          </div>,
+                          document.body,
                         )}
                       </div>
                     </div>
