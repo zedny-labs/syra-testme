@@ -20,6 +20,8 @@ export function pointerPositionToSeconds(clientX, rect, duration) {
   return pct * duration
 }
 
+const SEEK_STEP_SECONDS = 5
+
 // Drives the existing @vimeo/player SDK instance to render a control bar
 // styled to match this app, replacing Vimeo's native (branded) controls —
 // see docs/superpowers/specs/2026-08-16-vimeo-custom-controls-design.md.
@@ -36,10 +38,9 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
     if (!player) return undefined
     const handlePlay = () => setIsPlaying(true)
     const handlePause = () => setIsPlaying(false)
-    const handleVolumeChange = ({ volume: v }) => {
-      const safeVolume = Number.isFinite(v) ? v : 1
-      setVolume(safeVolume)
-      setIsMuted(safeVolume === 0)
+    const handleVolumeChange = ({ volume: v, muted: m }) => {
+      if (Number.isFinite(v)) setVolume(v)
+      if (typeof m === 'boolean') setIsMuted(m)
     }
     const handleProgress = ({ percent }) => {
       if (Number.isFinite(percent)) setBufferedPercent(Math.max(0, Math.min(100, percent * 100)))
@@ -48,11 +49,8 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
     player.on('pause', handlePause)
     player.on('volumechange', handleVolumeChange)
     player.on('progress', handleProgress)
-    player.getVolume().then((v) => {
-      const safeVolume = Number.isFinite(v) ? v : 1
-      setVolume(safeVolume)
-      setIsMuted(safeVolume === 0)
-    }).catch(() => {})
+    player.getVolume().then((v) => { if (Number.isFinite(v)) setVolume(v) }).catch(() => {})
+    player.getMuted().then((m) => { if (typeof m === 'boolean') setIsMuted(m) }).catch(() => {})
     return () => {
       try { player.off('play', handlePlay) } catch { /* noop */ }
       try { player.off('pause', handlePause) } catch { /* noop */ }
@@ -74,7 +72,7 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
   const toggleMute = () => {
     if (!player) return
     const nextMuted = !isMuted
-    player.setVolume(nextMuted ? 0 : (volume || 1)).catch(() => {})
+    player.setMuted(nextMuted).catch(() => {})
     setIsMuted(nextMuted)
   }
 
@@ -83,13 +81,20 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
     const next = Number(e.target.value)
     player.setVolume(next).catch(() => {})
     setVolume(next)
-    setIsMuted(next === 0)
+    const shouldMute = next === 0
+    player.setMuted(shouldMute).catch(() => {})
+    setIsMuted(shouldMute)
   }
 
   const seekToClientX = (clientX) => {
     const rect = trackRef.current?.getBoundingClientRect()
     if (!rect) return 0
     return pointerPositionToSeconds(clientX, rect, safeDuration)
+  }
+
+  const commitSeek = (target) => {
+    const clamped = Math.max(0, Math.min(target, safeDuration || target))
+    onSeek(clamped)
   }
 
   const handleTrackPointerDown = (e) => {
@@ -107,7 +112,28 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
     if (dragSeconds === null) return
     const target = seekToClientX(e.clientX)
     setDragSeconds(null)
-    onSeek(target)
+    commitSeek(target)
+  }
+
+  const handleTrackPointerCancel = () => {
+    setDragSeconds(null)
+  }
+
+  const handleTrackKeyDown = (e) => {
+    if (!player || safeDuration <= 0) return
+    let target = null
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      target = Math.max(0, displaySeconds - SEEK_STEP_SECONDS)
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      target = Math.min(safeDuration, displaySeconds + SEEK_STEP_SECONDS)
+    } else if (e.key === 'Home') {
+      target = 0
+    } else if (e.key === 'End') {
+      target = safeDuration
+    }
+    if (target === null) return
+    e.preventDefault()
+    commitSeek(target)
   }
 
   const requestFullscreen = () => {
@@ -124,13 +150,16 @@ export default function VimeoControlsBar({ player, iframeRef, currentTime, durat
         ref={trackRef}
         className={styles.vimeoScrubTrack}
         role="slider"
+        tabIndex={player ? 0 : -1}
         aria-label={t('admin_videos_seek_aria')}
         aria-valuemin={0}
         aria-valuemax={safeDuration}
-        aria-valuenow={displaySeconds}
+        aria-valuenow={Math.round(displaySeconds)}
         onPointerDown={handleTrackPointerDown}
         onPointerMove={handleTrackPointerMove}
         onPointerUp={handleTrackPointerUp}
+        onPointerCancel={handleTrackPointerCancel}
+        onKeyDown={handleTrackKeyDown}
       >
         <div className={styles.vimeoScrubBuffered} style={{ width: `${bufferedPercent}%` }} />
         <div className={styles.vimeoScrubPlayed} style={{ width: `${playedPercent}%` }} />
