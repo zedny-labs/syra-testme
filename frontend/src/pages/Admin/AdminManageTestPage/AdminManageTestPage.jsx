@@ -718,6 +718,7 @@ export default function AdminManageTestPage() {
   const [deleteQuestionId, setDeleteQuestionId] = useState(null)
   const [deleteSessionId, setDeleteSessionId] = useState(null)
   const [deleteExamConfirm, setDeleteExamConfirm] = useState(false)
+  const [publishedSaveConfirm, setPublishedSaveConfirm] = useState(false)
   const [deletingQuestionBusyId, setDeletingQuestionBusyId] = useState(null)
   const [deletingSessionBusyId, setDeletingSessionBusyId] = useState(null)
   const [deletingExamBusy, setDeletingExamBusy] = useState(false)
@@ -919,6 +920,7 @@ export default function AdminManageTestPage() {
   const handleTabChange = useCallback((nextTab, nextSection = settingsSection) => {
     if (!TABS.some((item) => item.id === nextTab)) return
     const resolvedSection = SETTINGS_SECTION_IDS.includes(nextSection) ? nextSection : DEFAULT_SETTINGS_SECTION
+    setPublishedSaveConfirm(false)
     setTab(nextTab)
     const params = new URLSearchParams(location.search)
     if (nextTab === 'settings') params.delete('tab')
@@ -1648,6 +1650,11 @@ export default function AdminManageTestPage() {
   const handleSettingsSave = async () => {
     if (!exam) return
     if (isArchived) return withError(t('admin_manage_archived_readonly'))
+    if (isPublished && !publishedSaveConfirm) {
+      setPublishedSaveConfirm(true)
+      return
+    }
+    setPublishedSaveConfirm(false)
     await Promise.resolve()
     const form = settingsFormRef.current
     const trimmedTitle = form.title.trim()
@@ -1790,28 +1797,26 @@ export default function AdminManageTestPage() {
       section_count: Math.floor(sectionCount),
       allow_section_selection: form.allow_section_selection,
     }
-    const adminPayload = isPublished
-      ? {
-          name: trimmedTitle,
-          description: form.description || null,
-        }
-      : {
-          code: trimmedCode || null,
-          name: trimmedTitle,
-          description: form.description || null,
-          type: exam.type,
-          node_id: exam.node_id || undefined,
-          category_id: form.category_id || exam.category_id || undefined,
-          grading_scale_id: exam.grading_scale_id || undefined,
-          report_displayed: form.report_displayed,
-          report_content: form.report_content,
-          time_limit_minutes: timeLimit,
-          attempts_allowed: Math.floor(maxAttempts),
-          passing_score: passingScore,
-          runtime_settings: runtimeSettings,
-          proctoring_config: normalizeProctoringConfig(form.proctoring_config || {}),
-          certificate: certificatePayload,
-        }
+    // Archived tests are read-only server-side (TestService._assert_can_mutate); the Save
+    // control is disabled via lockedExamFields in that case, so this only runs for
+    // Draft/Published tests, both of which now accept the full settings payload.
+    const adminPayload = {
+      code: trimmedCode || null,
+      name: trimmedTitle,
+      description: form.description || null,
+      type: exam.type,
+      node_id: exam.node_id || undefined,
+      category_id: form.category_id || exam.category_id || undefined,
+      grading_scale_id: exam.grading_scale_id || undefined,
+      report_displayed: form.report_displayed,
+      report_content: form.report_content,
+      time_limit_minutes: timeLimit,
+      attempts_allowed: Math.floor(maxAttempts),
+      passing_score: passingScore,
+      runtime_settings: runtimeSettings,
+      proctoring_config: normalizeProctoringConfig(form.proctoring_config || {}),
+      certificate: certificatePayload,
+    }
 
     setSavingSettings(true)
     let saved = false
@@ -2098,8 +2103,8 @@ export default function AdminManageTestPage() {
 
   const isPublished = exam.status === 'PUBLISHED'
   const isArchived = exam.status === 'ARCHIVED'
-  const lockedExamFields = isPublished || isArchived
-  const reportSettingsLocked = isPublished || isArchived
+  const lockedExamFields = isArchived
+  const reportSettingsLocked = isArchived
   const sessionFormReady = Boolean(sessionForm.user_id && sessionForm.scheduled_at)
   const activeProctoringChecks = PROCTOR_BOOLEAN_KEYS.filter((key) => Boolean(settingsForm.proctoring_config?.[key]))
   const openSessions = sessions.filter((session) => session.access_mode === 'OPEN').length
@@ -2173,6 +2178,7 @@ export default function AdminManageTestPage() {
     hydrateSettingsForm(exam)
     setError('')
     setNotice('')
+    setPublishedSaveConfirm(false)
   }
 
   const isBrowserLockdownEnabled = LOCKDOWN_KEYS.some((key) => Boolean(settingsForm.proctoring_config?.[key]))
@@ -2577,8 +2583,20 @@ export default function AdminManageTestPage() {
   )
   const renderSettingsFooter = (saveLabel) => (
     <div className={styles.settingsPageFooter}>
-      <button type="button" className={styles.blueBtn} disabled={savingSettings || isArchived} onClick={handleSettingsSave}>
-        {savingSettings ? t('admin_manage_saving') : (saveLabel || t('save'))}
+      {isPublished && publishedSaveConfirm ? (
+        <p className={styles.settingsPublishWarning}>{t('admin_manage_settings_published_confirm_warning')}</p>
+      ) : null}
+      <button
+        type="button"
+        className={isPublished && publishedSaveConfirm ? styles.dangerBtn : styles.blueBtn}
+        disabled={savingSettings || isArchived}
+        onClick={handleSettingsSave}
+      >
+        {savingSettings
+          ? t('admin_manage_saving')
+          : isPublished && publishedSaveConfirm
+            ? t('admin_manage_btn_confirm_save_published')
+            : (saveLabel || t('save'))}
       </button>
       <button type="button" className={styles.ghostBtn} onClick={handleSettingsCancel}>{t('cancel')}</button>
     </div>
@@ -4388,8 +4406,18 @@ export default function AdminManageTestPage() {
                 <label>{t('admin_manage_current_status')}<input value={exam.status || ''} readOnly /></label>
                 <label>{t('admin_manage_total_attempts')}<input value={String(attemptRows.length)} readOnly /></label>
               </div>
+              {isPublished && publishedSaveConfirm ? (
+                <p className={styles.settingsPublishWarning}>{t('admin_manage_settings_published_confirm_warning')}</p>
+              ) : null}
               <div className={styles.inlineActions}>
-                <button type="button" className={styles.blueBtn} disabled={isArchived || deletingExamBusy} onClick={handleSettingsSave}>{t('admin_manage_btn_save_settings')}</button>
+                <button
+                  type="button"
+                  className={isPublished && publishedSaveConfirm ? styles.dangerBtn : styles.blueBtn}
+                  disabled={isArchived || deletingExamBusy}
+                  onClick={handleSettingsSave}
+                >
+                  {isPublished && publishedSaveConfirm ? t('admin_manage_btn_confirm_save_published') : t('admin_manage_btn_save_settings')}
+                </button>
                 {!isPublished && !isArchived ? <button type="button" className={styles.greenBtn} disabled={deletingExamBusy} onClick={handlePublish}>{t('admin_manage_btn_publish')}</button> : null}
                 <button type="button" className={styles.ghostBtn} disabled={deletingExamBusy} onClick={handleClose}>{isArchived ? t('admin_manage_btn_unarchive') : t('admin_manage_btn_archive')}</button>
                 <button type="button" className={styles.ghostBtn} disabled={lockedExamFields || deletingExamBusy} onClick={() => navigate(`/admin/tests/${exam.id}/edit`)}>{t('admin_manage_btn_open_editor')}</button>

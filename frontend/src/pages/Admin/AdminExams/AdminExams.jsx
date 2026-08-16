@@ -518,6 +518,16 @@ export default function AdminExams() {
                       >
                         {t('admin_exams_manage_test')}
                       </button>
+                      <button
+                        type="button"
+                        className={styles.actionBtn}
+                        disabled={busyId === test.id || test.status === 'ARCHIVED'}
+                        onClick={() => navigate(`/admin/tests/${test.id}/edit`)}
+                        aria-label={`${t('edit')} ${test.name}`}
+                        title={test.status === 'ARCHIVED' ? t('admin_wizard_val_locked') : undefined}
+                      >
+                        {t('edit')}
+                      </button>
                       <div className={styles.menuWrap} data-admin-test-menu>
                         <button
                           type="button"

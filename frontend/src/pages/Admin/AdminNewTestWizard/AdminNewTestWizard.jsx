@@ -282,6 +282,7 @@ export default function AdminNewTestWizard() {
   const [saving, setSaving] = useState(false)
   const [examId, setExamId] = useState(editId || null)
   const [editorLocked, setEditorLocked] = useState(false)
+  const [editingPublishedTest, setEditingPublishedTest] = useState(false)
 
   /* ─── Step 0: Information ─── */
   const [title, setTitle] = useState('')
@@ -609,7 +610,8 @@ export default function AdminNewTestWizard() {
     setWizardReady(false)
     const testRequest = adminApi.getTest(editId).then(({ data: test }) => {
       if (!test) return
-      setEditorLocked(test.status && test.status !== 'DRAFT')
+      setEditorLocked(test.status === 'ARCHIVED')
+      setEditingPublishedTest(test.status === 'PUBLISHED')
       const runtimeSettings = test.runtime_settings || {}
       setTitle(test.name || '')
       setDescription(test.description || '')
@@ -2866,6 +2868,10 @@ export default function AdminNewTestWizard() {
   return (
     <div className={styles.page}>
       <h2 className={styles.title}>{editId ? t('admin_wizard_edit_test') : t('admin_wizard_new_test')}</h2>
+
+      {editingPublishedTest && !editorLocked && (
+        <div className={styles.warningBanner}>{t('admin_wizard_editing_published_warning')}</div>
+      )}
 
       {/* Steps bar */}
       <div className={styles.stepsBar}>
