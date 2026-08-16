@@ -7,6 +7,7 @@ import { translateEventType, translateSeverity } from '../../../utils/proctoring
 import { readPaginatedItems } from '../../../utils/pagination'
 import useLanguage from '../../../hooks/useLanguage'
 import { buildVimeoEmbedSrc, isVimeoPlayback } from './vimeoPlayback'
+import VimeoControlsBar from './VimeoControlsBar'
 import styles from './AdminAttemptVideos.module.scss'
 
 const WARN_SEVERITIES = new Set(['HIGH', 'MEDIUM'])
@@ -911,15 +912,24 @@ export default function AdminAttemptVideos() {
             <div className={styles.playerViewport}>
               {selectedVideoUrl ? (
                 selectedVideoIsVimeo ? (
-                  <iframe
-                    key={`vimeo-${selectedVideo?.name || 'recording'}`}
-                    ref={vimeoIframeRef}
-                    className={styles.video}
-                    src={buildVimeoEmbedSrc(selectedVideoUrl)}
-                    title={selectedVideo?.name || t('admin_videos_source_recording')}
-                    allow="autoplay; fullscreen; picture-in-picture"
-                    allowFullScreen
-                  />
+                  <div className={styles.vimeoPlayerWrap}>
+                    <iframe
+                      key={`vimeo-${selectedVideo?.name || 'recording'}`}
+                      ref={vimeoIframeRef}
+                      className={styles.video}
+                      src={buildVimeoEmbedSrc(selectedVideoUrl)}
+                      title={selectedVideo?.name || t('admin_videos_source_recording')}
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                    <VimeoControlsBar
+                      player={vimeoPlayerRef.current}
+                      iframeRef={vimeoIframeRef}
+                      currentTime={currentTime}
+                      duration={effectiveDuration}
+                      onSeek={seekTo}
+                    />
+                  </div>
                 ) : (
                   <video
                     key={`${selectedVideo?.name || 'recording'}-${selectedVideoUsesHls ? 'hls' : 'file'}`}
