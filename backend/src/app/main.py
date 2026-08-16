@@ -592,9 +592,6 @@ async def lifespan(_: FastAPI):
 
     is_test_env = _is_test_env()
     _run_startup_initialization_once_per_container(is_test_env=is_test_env)
-    # One-shot cleanup: delete all attempts if the flag is set
-    from .startup_purge import run_if_flagged as _purge_attempts_if_flagged
-    _purge_attempts_if_flagged()
     is_leader = _try_acquire_leader_lock()
     background_tasks = []
     if not is_test_env and is_leader:
