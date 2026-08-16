@@ -549,6 +549,19 @@ export default function AdminAttemptVideos() {
     setCurrentTime(target)
   }
 
+  // Clicking the video itself toggles play/pause, same as clicking the
+  // dedicated button in VimeoControlsBar — that component's own play/pause
+  // state stays in sync regardless of who calls play()/pause() on the SDK,
+  // since it listens for the SDK's own 'play'/'pause' events.
+  const toggleVimeoPlayback = () => {
+    const player = vimeoPlayerRef.current
+    if (!player) return
+    player.getPaused().then((paused) => {
+      if (paused) player.play().catch(() => {})
+      else player.pause().catch(() => {})
+    }).catch(() => {})
+  }
+
   const selectEvent = (event) => {
     if (!event) return
     setSelectedEventId(event.id)
@@ -914,15 +927,26 @@ export default function AdminAttemptVideos() {
               {selectedVideoUrl ? (
                 selectedVideoIsVimeo ? (
                   <div className={styles.vimeoPlayerWrap} ref={vimeoPlayerWrapRef}>
-                    <iframe
-                      key={`vimeo-${selectedVideo?.name || 'recording'}`}
-                      ref={vimeoIframeRef}
-                      className={styles.video}
-                      src={buildVimeoEmbedSrc(selectedVideoUrl)}
-                      title={selectedVideo?.name || t('admin_videos_source_recording')}
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                    />
+                    <div className={styles.vimeoVideoStage}>
+                      <iframe
+                        key={`vimeo-${selectedVideo?.name || 'recording'}`}
+                        ref={vimeoIframeRef}
+                        className={styles.video}
+                        src={buildVimeoEmbedSrc(selectedVideoUrl)}
+                        title={selectedVideo?.name || t('admin_videos_source_recording')}
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                      />
+                      {/* The iframe is cross-origin, so we can't attach a click
+                          handler inside it — this transparent overlay sits on
+                          top and forwards clicks to the same play/pause the
+                          control bar's button already uses. */}
+                      <div
+                        className={styles.vimeoClickOverlay}
+                        aria-hidden="true"
+                        onClick={toggleVimeoPlayback}
+                      />
+                    </div>
                     <VimeoControlsBar
                       player={vimeoPlayerRef.current}
                       fullscreenTargetRef={vimeoPlayerWrapRef}

@@ -402,6 +402,19 @@
   gap: 0.5rem;
 }
 
+.vimeoVideoStage {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.vimeoClickOverlay {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
 .vimeoControlsBar {
   display: flex;
   align-items: center;
@@ -457,6 +470,11 @@
   max-height: none;
   background: #000;
   justify-content: center;
+}
+
+.vimeoPlayerWrap:fullscreen .vimeoVideoStage {
+  flex: 1;
+  min-height: 0;
 }
 
 .vimeoPlayerWrap:fullscreen .video {
