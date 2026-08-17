@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -8,6 +9,7 @@ import httpx
 
 from ..core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 _KNOWN_OBJECT_FOLDERS = {"identity", "evidence", "reports", "videos", "questions"}
 
@@ -175,3 +177,37 @@ async def upload_bytes(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "size": len(content or b""),
     }
+
+
+async def delete_object(object_path: str, *, client: httpx.AsyncClient | None = None) -> bool:
+    """Permanently delete an object from Supabase Storage. Returns True on
+    success (including if the object was already gone), False if the delete
+    call failed or storage isn't configured."""
+    if not supabase_storage_configured():
+        return False
+    path = str(object_path or "").strip()
+    if not path:
+        return False
+
+    request_url = f"{_api_base_url()}/object/{quote(str(settings.SUPABASE_STORAGE_BUCKET or '').strip(), safe='')}"
+    owns_client = client is None
+    client = client or httpx.AsyncClient(timeout=30.0)
+    try:
+        response = await client.request(
+            "DELETE",
+            request_url,
+            headers={**_headers(), "Content-Type": "application/json"},
+            json={"prefixes": [path]},
+        )
+        if response.status_code == 404:
+            return True
+        if response.is_error:
+            logger.warning("Failed to delete Supabase object %s: %s", path, _response_error_message(response))
+            return False
+        return True
+    except Exception as exc:
+        logger.warning("Failed to delete Supabase object %s: %s", path, exc)
+        return False
+    finally:
+        if owns_client:
+            await client.aclose()

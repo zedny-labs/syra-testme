@@ -114,6 +114,7 @@ export const adminApi = {
   pauseAttempt: (attemptId) => api.post(`proctoring/${attemptId}/pause`),
   resumeAttempt: (attemptId) => api.post(`proctoring/${attemptId}/resume`),
   listAttemptVideos: (attemptId, opts) => api.get(`proctoring/${attemptId}/videos`, opts),
+  deleteAttemptVideo: (attemptId, eventId) => api.delete(`proctoring/admin/sessions/${attemptId}/videos/${eventId}`),
   listExamVideoUploadStatus: (examId, attemptIds = [], opts = {}) => {
     const params = { ...(opts.params || {}) }
     if (Array.isArray(attemptIds) && attemptIds.length > 0) {

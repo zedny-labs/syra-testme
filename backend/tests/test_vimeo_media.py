@@ -252,3 +252,67 @@ def test_get_details_marks_ready_when_transcode_complete(monkeypatch):
     assert info["duration"] == 12.5
     assert info["source"] == "screen"
     assert info["playback_type"] == "vimeo_embed"
+
+
+# ---- delete ---------------------------------------------------------------
+
+
+def _delete_handler(state, *, status_code=204):
+    def handler(request: httpx.Request) -> httpx.Response:
+        state["calls"].append((request.method, str(request.url)))
+        state["auth"] = request.headers.get("authorization")
+        return httpx.Response(status_code)
+    return handler
+
+
+def test_delete_removes_remote_video_by_uid(monkeypatch):
+    _use_settings(monkeypatch, VIMEO_ACCESS_TOKEN="tok")
+    state = {"calls": []}
+
+    ok = asyncio.run(vimeo_media.delete_vimeo_video(uid=VIDEO_ID, client=_client(_delete_handler(state))))
+
+    assert ok is True
+    assert state["calls"] == [("DELETE", f"https://api.vimeo.com/videos/{VIDEO_ID}")]
+    assert state["auth"] == "Bearer tok"
+
+
+def test_delete_removes_remote_video_by_uri(monkeypatch):
+    _use_settings(monkeypatch, VIMEO_ACCESS_TOKEN="tok")
+    state = {"calls": []}
+
+    ok = asyncio.run(
+        vimeo_media.delete_vimeo_video(uri=f"/videos/{VIDEO_ID}", client=_client(_delete_handler(state)))
+    )
+
+    assert ok is True
+    assert state["calls"] == [("DELETE", f"https://api.vimeo.com/videos/{VIDEO_ID}")]
+
+
+def test_delete_treats_already_gone_as_success(monkeypatch):
+    _use_settings(monkeypatch, VIMEO_ACCESS_TOKEN="tok")
+    state = {"calls": []}
+
+    ok = asyncio.run(
+        vimeo_media.delete_vimeo_video(uid=VIDEO_ID, client=_client(_delete_handler(state, status_code=404)))
+    )
+
+    assert ok is True
+
+
+def test_delete_returns_false_on_server_error(monkeypatch):
+    _use_settings(monkeypatch, VIMEO_ACCESS_TOKEN="tok")
+    state = {"calls": []}
+
+    ok = asyncio.run(
+        vimeo_media.delete_vimeo_video(uid=VIDEO_ID, client=_client(_delete_handler(state, status_code=500)))
+    )
+
+    assert ok is False
+
+
+def test_delete_returns_false_with_no_identifier(monkeypatch):
+    _use_settings(monkeypatch, VIMEO_ACCESS_TOKEN="tok")
+
+    ok = asyncio.run(vimeo_media.delete_vimeo_video(uid=None, uri=None))
+
+    assert ok is False
