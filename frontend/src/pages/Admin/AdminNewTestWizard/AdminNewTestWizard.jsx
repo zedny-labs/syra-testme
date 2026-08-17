@@ -287,8 +287,31 @@ function isForceSubmitEnabled(proctoring, featureKey) {
   const rules = proctoring.alert_rules || []
   return events.every((eventType) => {
     const rule = rules.find((r) => r.id === forceSubmitRuleId(featureKey, eventType))
-    return Boolean(rule && rule.action === 'AUTO_SUBMIT')
+    return Boolean(rule && rule.event_type === eventType && rule.action === 'AUTO_SUBMIT')
   })
+}
+
+// Module-scope (not nested inside AdminNewTestWizard) so its identity is stable
+// across parent re-renders. A component defined inside another component's
+// render body gets a new type on every render, which forces React to
+// unmount/remount it instead of reconciling in place -- that would drop the
+// checkbox's DOM node (and any in-flight events) on every proctoring state
+// update. Takes proctoring/onToggle as props instead of closing over them.
+function ForceSubmitToggle({ featureKey, proctoring, onToggle }) {
+  const { t } = useLanguage()
+  if (!FORCE_SUBMIT_EVENT_MAP[featureKey]) return null
+  return (
+    <label className={styles.checkItem}>
+      <input
+        type="checkbox"
+        data-testid={`force-submit-${featureKey}`}
+        checked={isForceSubmitEnabled(proctoring, featureKey)}
+        disabled={!proctoring[featureKey]}
+        onChange={(e) => onToggle(featureKey, e.target.checked)}
+      />
+      <span>{t('admin_wizard_force_submit_on_violation')}</span>
+    </label>
+  )
 }
 
 export default function AdminNewTestWizard() {
@@ -1300,21 +1323,6 @@ export default function AdminNewTestWizard() {
       return { ...prev, alert_rules: [...kept, ...added] }
     })
     if (examId) autoPersist()
-  }
-  const renderForceSubmitToggle = (featureKey) => {
-    if (!FORCE_SUBMIT_EVENT_MAP[featureKey]) return null
-    return (
-      <label className={styles.checkItem}>
-        <input
-          type="checkbox"
-          data-testid={`force-submit-${featureKey}`}
-          checked={isForceSubmitEnabled(proctoring, featureKey)}
-          disabled={!proctoring[featureKey]}
-          onChange={(e) => toggleForceSubmit(featureKey, e.target.checked)}
-        />
-        <span>{t('admin_wizard_force_submit_on_violation')}</span>
-      </label>
-    )
   }
   const updateProctoringNumber = (key, rawValue, { integer = false } = {}) => {
     const nextValue = integer ? Number.parseInt(rawValue, 10) : Number.parseFloat(rawValue)
@@ -2338,7 +2346,7 @@ export default function AdminNewTestWizard() {
                     </div>
                     <div className={styles.requirementCardDesc}>{t(item.descKey)}</div>
                   </button>
-                  {renderForceSubmitToggle(item.key)}
+                  <ForceSubmitToggle featureKey={item.key} proctoring={proctoring} onToggle={toggleForceSubmit} />
                 </div>
               ))}
             </div>

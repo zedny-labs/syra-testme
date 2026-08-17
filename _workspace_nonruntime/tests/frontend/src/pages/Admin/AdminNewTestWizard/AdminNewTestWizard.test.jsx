@@ -325,6 +325,34 @@ describe('AdminNewTestWizard', () => {
     expect(screen.getByText('Escalation rules: 2')).toBeTruthy()
   })
 
+  it('unchecks a force-submit checkbox when its alert rule is removed via the manual escalation rules builder', async () => {
+    renderWizard()
+
+    fireEvent.change(await screen.findByLabelText(/Test Name/i), {
+      target: { value: 'Core Cycle Test' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByText('Test Creation Method')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proctoring & Test Settings' })).toBeTruthy())
+
+    const forceSubmitCheckbox = screen.getByTestId('force-submit-fullscreen_enforce')
+    fireEvent.click(forceSubmitCheckbox)
+    expect(forceSubmitCheckbox.checked).toBe(true)
+    expect(screen.getByText('Escalation rules: 1')).toBeTruthy()
+
+    // The force-submit toggle created exactly one alert rule, so it is the only
+    // row in the manual "Escalation rules" builder below — remove it there,
+    // through the same UI an admin would use to hand-edit rules, rather than
+    // through the checkbox's own onChange handler.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(screen.getByText('Escalation rules: 0')).toBeTruthy()
+    expect(forceSubmitCheckbox.checked).toBe(false)
+  })
+
   it('does not reload assigned sessions again when learner lookups finish in edit mode', async () => {
     let resolveLearners
     const learnersPromise = new Promise((resolve) => {
