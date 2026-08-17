@@ -429,10 +429,21 @@ export default function AdminNewTestWizard() {
     })
   }
 
-  const loadNodesForCourse = async (selectedCourseId, { createIfEmpty = false } = {}) => {
+  // `preserveNodeId` keeps whatever node id the caller already knows is correct
+  // (e.g. the exam's own `node_id` from a real, existing test) instead of
+  // clearing/replacing it. GET /nodes is owner-scoped to courses *this* admin
+  // created, so it comes back empty whenever the exam being edited belongs to
+  // this admin but its course was created by someone else (legacy data, or an
+  // exam whose course ownership otherwise diverges from the exam's own
+  // creator) — that's not "no node exists", just "this admin can't list it".
+  // Without this guard, an empty list + createIfEmpty would try to create a
+  // brand-new node under a course this admin doesn't own, which the backend
+  // correctly rejects (403 "not_allowed"); or, with createIfEmpty off, it
+  // would still silently null out a perfectly valid node_id.
+  const loadNodesForCourse = async (selectedCourseId, { createIfEmpty = false, preserveNodeId = false } = {}) => {
     if (!selectedCourseId) {
       setNodes([])
-      setNodeId('')
+      if (!preserveNodeId) setNodeId('')
       return []
     }
     try {
@@ -454,12 +465,18 @@ export default function AdminNewTestWizard() {
             : []
       if (nodeList.length) {
         setNodes(nodeList)
-        setNodeId((prev) => (
-          prev && nodeList.some((node) => String(node.id) === String(prev))
-            ? prev
-            : nodeList[0].id
-        ))
+        if (!preserveNodeId) {
+          setNodeId((prev) => (
+            prev && nodeList.some((node) => String(node.id) === String(prev))
+              ? prev
+              : nodeList[0].id
+          ))
+        }
         return nodeList
+      }
+      if (preserveNodeId) {
+        setNodes([])
+        return []
       }
       if (createIfEmpty) {
         const { data: node } = await adminApi.createNode({ course_id: selectedCourseId, title: 'Module 1', order: 0 })
@@ -472,7 +489,7 @@ export default function AdminNewTestWizard() {
       return []
     } catch {
       setNodes([])
-      setNodeId('')
+      if (!preserveNodeId) setNodeId('')
       return []
     }
   }
@@ -621,7 +638,10 @@ export default function AdminNewTestWizard() {
       setCourseId(test.course_id || '')
       setNodeId(test.node_id || '')
       if (test.course_id) {
-        loadNodesForCourse(test.course_id, { createIfEmpty: true })
+        // preserveNodeId: this test already has a real node_id (fetched above);
+        // don't let an owner-scoped, possibly-empty /nodes list overwrite it
+        // or trigger creating a duplicate node under a course we may not own.
+        loadNodesForCourse(test.course_id, { createIfEmpty: false, preserveNodeId: true })
       }
       setPassingScore(test.passing_score ?? 60)
       setMaxAttempts(test.attempts_allowed ?? 1)
