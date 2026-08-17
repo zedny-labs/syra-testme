@@ -2470,16 +2470,19 @@ export default function AdminNewTestWizard() {
             </div>
             <div className={styles.detectorsGrid}>
               {DETECTORS.map(d => (
-                <div key={d.key} className={`${styles.detectorCard} ${proctoring[d.key] ? styles.detectorOn : ''}`} onClick={() => toggleDetector(d.key)}>
-                  <div className={styles.detectorToggle}>
-                    <div className={`${styles.toggleTrack} ${proctoring[d.key] ? styles.toggleTrackOn : ''}`}>
-                      <div className={styles.toggleThumb} />
+                <div key={d.key} className={styles.forceSubmitCardWrap}>
+                  <div className={`${styles.detectorCard} ${proctoring[d.key] ? styles.detectorOn : ''}`} onClick={() => toggleDetector(d.key)}>
+                    <div className={styles.detectorToggle}>
+                      <div className={`${styles.toggleTrack} ${proctoring[d.key] ? styles.toggleTrackOn : ''}`}>
+                        <div className={styles.toggleThumb} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className={styles.detectorName}>{t(d.labelKey)}</div>
+                      <div className={styles.detectorDesc}>{t(d.descKey)}</div>
                     </div>
                   </div>
-                  <div>
-                    <div className={styles.detectorName}>{t(d.labelKey)}</div>
-                    <div className={styles.detectorDesc}>{t(d.descKey)}</div>
-                  </div>
+                  <ForceSubmitToggle featureKey={d.key} proctoring={proctoring} onToggle={toggleForceSubmit} />
                 </div>
               ))}
             </div>

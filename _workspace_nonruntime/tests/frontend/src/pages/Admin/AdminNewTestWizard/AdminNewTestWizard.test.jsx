@@ -353,6 +353,31 @@ describe('AdminNewTestWizard', () => {
     expect(forceSubmitCheckbox.checked).toBe(false)
   })
 
+  it('shows a force-submit checkbox on detector cards and keeps mic/lighting requirements without one', async () => {
+    renderWizard()
+
+    fireEvent.change(await screen.findByLabelText(/Test Name/i), {
+      target: { value: 'Core Cycle Test' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByText('Test Creation Method')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proctoring & Test Settings' })).toBeTruthy())
+
+    expect(screen.getByTestId('force-submit-face_detection')).toBeTruthy()
+    expect(screen.getByTestId('force-submit-eye_tracking')).toBeTruthy()
+    expect(screen.getByTestId('force-submit-head_pose_detection')).toBeTruthy()
+    expect(screen.getByTestId('force-submit-mouth_detection')).toBeTruthy()
+    expect(screen.getByTestId('force-submit-object_detection')).toBeTruthy()
+    expect(screen.getByTestId('force-submit-multi_face')).toBeTruthy()
+    expect(screen.getByTestId('force-submit-audio_detection')).toBeTruthy()
+
+    expect(screen.queryByTestId('force-submit-mic_required')).toBeNull()
+    expect(screen.queryByTestId('force-submit-lighting_required')).toBeNull()
+  })
+
   it('does not reload assigned sessions again when learner lookups finish in edit mode', async () => {
     let resolveLearners
     const learnersPromise = new Promise((resolve) => {
