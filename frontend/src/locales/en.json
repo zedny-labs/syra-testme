@@ -1135,6 +1135,8 @@
   "admin_wizard_ctrl_audio_window_desc": "How many recent chunks are considered when detecting sustained audio anomalies.",
   "admin_wizard_ctrl_max_tab_label": "Maximum tab switches",
   "admin_wizard_ctrl_max_tab_desc": "Lower is stricter. The attempt can auto-submit after fewer focus losses.",
+  "admin_wizard_force_submit_on_violation": "Force-submit on violation",
+  "admin_wizard_force_submit_on_violation_desc": "Automatically submit the exam the first time this is violated, instead of only logging a warning.",
   "admin_wizard_ctrl_max_alerts_label": "Maximum alert count",
   "admin_wizard_ctrl_max_alerts_desc": "Auto-submit after this many alerts are logged.",
   "admin_wizard_ctrl_max_score_label": "Maximum violation score",
