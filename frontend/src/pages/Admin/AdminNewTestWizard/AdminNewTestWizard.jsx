@@ -263,6 +263,34 @@ function describeAlertRule(rule, t) {
   return `${option ? t(option.labelKey) : humanizeSettingLabel(rule.event_type || 'Alert')} x${rule.threshold} -> ${action ? t(action.labelKey) : rule.action} (${rule.severity})`
 }
 
+const FORCE_SUBMIT_EVENT_MAP = {
+  fullscreen_enforce: ['FULLSCREEN_EXIT'],
+  tab_switch_detect: ['TAB_SWITCH', 'FOCUS_LOSS'],
+  copy_paste_block: ['COPY_PASTE_ATTEMPT'],
+  camera_required: ['CAMERA_COVERED'],
+  face_detection: ['FACE_DISAPPEARED'],
+  multi_face: ['MULTIPLE_FACES'],
+  audio_detection: ['LOUD_AUDIO', 'AUDIO_ANOMALY'],
+  object_detection: ['FORBIDDEN_OBJECT'],
+  eye_tracking: ['EYE_MOVEMENT'],
+  head_pose_detection: ['HEAD_POSE'],
+  mouth_detection: ['MOUTH_MOVEMENT'],
+}
+
+function forceSubmitRuleId(featureKey, eventType) {
+  return `force_submit:${featureKey}:${eventType}`
+}
+
+function isForceSubmitEnabled(proctoring, featureKey) {
+  const events = FORCE_SUBMIT_EVENT_MAP[featureKey]
+  if (!events) return false
+  const rules = proctoring.alert_rules || []
+  return events.every((eventType) => {
+    const rule = rules.find((r) => r.id === forceSubmitRuleId(featureKey, eventType))
+    return Boolean(rule && rule.action === 'AUTO_SUBMIT')
+  })
+}
+
 export default function AdminNewTestWizard() {
   const navigate = useNavigate()
   const { t } = useLanguage()
@@ -1248,6 +1276,45 @@ export default function AdminNewTestWizard() {
   const updateProctoringFlag = (key, checked) => {
     setProctoring((prev) => ({ ...prev, [key]: checked }))
     if (examId) autoPersist()
+  }
+  const toggleForceSubmit = (featureKey, checked) => {
+    const events = FORCE_SUBMIT_EVENT_MAP[featureKey]
+    if (!events) return
+    setProctoring((prev) => {
+      const kept = (prev.alert_rules || []).filter(
+        (rule) => !events.some((eventType) => rule.id === forceSubmitRuleId(featureKey, eventType)),
+      )
+      if (!checked) {
+        return { ...prev, alert_rules: kept }
+      }
+      const threshold = featureKey === 'tab_switch_detect'
+        ? Math.max(1, Number(prev.max_tab_blurs) || 3)
+        : 1
+      const added = events.map((eventType) => createAlertRule({
+        id: forceSubmitRuleId(featureKey, eventType),
+        event_type: eventType,
+        threshold,
+        severity: 'HIGH',
+        action: 'AUTO_SUBMIT',
+      }))
+      return { ...prev, alert_rules: [...kept, ...added] }
+    })
+    if (examId) autoPersist()
+  }
+  const renderForceSubmitToggle = (featureKey) => {
+    if (!FORCE_SUBMIT_EVENT_MAP[featureKey]) return null
+    return (
+      <label className={styles.checkItem}>
+        <input
+          type="checkbox"
+          data-testid={`force-submit-${featureKey}`}
+          checked={isForceSubmitEnabled(proctoring, featureKey)}
+          disabled={!proctoring[featureKey]}
+          onChange={(e) => toggleForceSubmit(featureKey, e.target.checked)}
+        />
+        <span>{t('admin_wizard_force_submit_on_violation')}</span>
+      </label>
+    )
   }
   const updateProctoringNumber = (key, rawValue, { integer = false } = {}) => {
     const nextValue = integer ? Number.parseInt(rawValue, 10) : Number.parseFloat(rawValue)
@@ -2257,20 +2324,22 @@ export default function AdminNewTestWizard() {
             <div className={styles.sectionDivider}>{t('admin_wizard_journey_requirements')}</div>
             <div className={styles.requirementGrid}>
               {PROCTORING_REQUIREMENTS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`${styles.requirementCard} ${proctoring[item.key] ? styles.requirementCardActive : ''}`}
-                  onClick={() => updateProctoringFlag(item.key, !proctoring[item.key])}
-                >
-                  <div className={styles.requirementCardHead}>
-                    <div className={styles.requirementCardTitle}>{t(item.labelKey)}</div>
-                    <div className={`${styles.toggleTrack} ${proctoring[item.key] ? styles.toggleTrackOn : ''}`}>
-                      <div className={styles.toggleThumb} />
+                <div key={item.key} className={styles.forceSubmitCardWrap}>
+                  <button
+                    type="button"
+                    className={`${styles.requirementCard} ${proctoring[item.key] ? styles.requirementCardActive : ''}`}
+                    onClick={() => updateProctoringFlag(item.key, !proctoring[item.key])}
+                  >
+                    <div className={styles.requirementCardHead}>
+                      <div className={styles.requirementCardTitle}>{t(item.labelKey)}</div>
+                      <div className={`${styles.toggleTrack} ${proctoring[item.key] ? styles.toggleTrackOn : ''}`}>
+                        <div className={styles.toggleThumb} />
+                      </div>
                     </div>
-                  </div>
-                  <div className={styles.requirementCardDesc}>{t(item.descKey)}</div>
-                </button>
+                    <div className={styles.requirementCardDesc}>{t(item.descKey)}</div>
+                  </button>
+                  {renderForceSubmitToggle(item.key)}
+                </div>
               ))}
             </div>
 

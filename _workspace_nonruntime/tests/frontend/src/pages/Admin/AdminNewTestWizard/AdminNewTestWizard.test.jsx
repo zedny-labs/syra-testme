@@ -1,5 +1,5 @@
 import React from 'react'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
@@ -272,6 +272,58 @@ describe('AdminNewTestWizard', () => {
     await waitFor(() => expect(screen.getByText('Matched 2 learners.')).toBeTruthy())
     expect(screen.getByText('Selected: 2')).toBeTruthy()
   }, 10000)
+
+  it('toggles a force-submit alert rule beside a requirement card and disables it when the requirement is off', async () => {
+    renderWizard()
+
+    fireEvent.change(await screen.findByLabelText(/Test Name/i), {
+      target: { value: 'Core Cycle Test' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByText('Test Creation Method')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proctoring & Test Settings' })).toBeTruthy())
+
+    expect(screen.getByText('Escalation rules: 0')).toBeTruthy()
+
+    const forceSubmitCheckbox = screen.getByTestId('force-submit-fullscreen_enforce')
+    expect(forceSubmitCheckbox.checked).toBe(false)
+    expect(forceSubmitCheckbox.disabled).toBe(false)
+
+    fireEvent.click(forceSubmitCheckbox)
+    expect(screen.getByText('Escalation rules: 1')).toBeTruthy()
+    expect(forceSubmitCheckbox.checked).toBe(true)
+
+    fireEvent.click(forceSubmitCheckbox)
+    expect(screen.getByText('Escalation rules: 0')).toBeTruthy()
+    expect(forceSubmitCheckbox.checked).toBe(false)
+
+    fireEvent.click(forceSubmitCheckbox)
+    expect(screen.getByText('Escalation rules: 1')).toBeTruthy()
+
+    const fullscreenCard = screen.getByText('Fullscreen lock').closest('button')
+    fireEvent.click(fullscreenCard)
+    expect(forceSubmitCheckbox.disabled).toBe(true)
+  })
+
+  it('adds one alert rule per underlying event when force-submit covers more than one event type', async () => {
+    renderWizard()
+
+    fireEvent.change(await screen.findByLabelText(/Test Name/i), {
+      target: { value: 'Core Cycle Test' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByText('Test Creation Method')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /^Next$/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proctoring & Test Settings' })).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('force-submit-tab_switch_detect'))
+    expect(screen.getByText('Escalation rules: 2')).toBeTruthy()
+  })
 
   it('does not reload assigned sessions again when learner lookups finish in edit mode', async () => {
     let resolveLearners
