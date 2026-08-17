@@ -14,11 +14,13 @@ means: the violation is still logged and the learner is still warned, but the ex
 keeps running.
 
 The feature reuses the existing `alert_rules` engine end-to-end — no new backend
-columns, no migration. The checkbox is a friendly front-end over rules that already
-round-trip through the same evaluation path used by the (currently hidden) advanced
-"alert rules" builder. The one behavior change is retiring tab-switching's separate,
-always-on, client-side force-submit check, folding it into the same engine so all 11
-features work identically.
+columns or schema changes. The checkbox is a friendly front-end over rules that
+already round-trip through the same evaluation path used by the (currently hidden)
+advanced "alert rules" builder. The one behavior change is retiring tab-switching's
+separate, always-on, client-side force-submit check, folding it into the same
+engine so all 11 features work identically — new exams opt in like every other
+feature, and a one-time data migration backfills existing exams so their behavior
+doesn't silently change.
 
 ## Motivation
 
@@ -176,16 +178,43 @@ plumbing needed on that side — it already fires for every other feature today.
 in the wizard; it now feeds the rule's `threshold` instead of a hardcoded client
 check.
 
-### 5. Backend
+### 5. Migration: backfilling existing exams
 
-No changes. `alert_rules` already persists and evaluates arbitrary event types
+New exams default this checkbox to **off** for all 11 features, including
+tab-switch — consistent with the other 10, which never had automatic behavior
+before. But tab-switch is the one feature that *did* have automatic force-submit
+behavior prior to this change (the hardcoded client check), so existing exams need
+a one-time backfill to keep behaving the way they do today.
+
+A data-only Alembic migration (no schema change — `exam_proctoring_alert_rules`
+already has every column needed):
+
+- For every `exam_proctoring_configs` row with `tab_switch_detect = true`:
+  - Skip if a `rule_key` starting with `force_submit:tab_switch_detect:` already
+    exists for that `exam_id` (idempotent — safe if re-run).
+  - Otherwise insert two `exam_proctoring_alert_rules` rows, appended after any
+    existing rules for that exam (`position = max(existing position) + 1`, then
+    `+2`):
+    - `rule_key='force_submit:tab_switch_detect:TAB_SWITCH'`, `event_type='TAB_SWITCH'`
+    - `rule_key='force_submit:tab_switch_detect:FOCUS_LOSS'`, `event_type='FOCUS_LOSS'`
+    - both: `threshold = max_tab_blurs or 3`, `severity='HIGH'`, `action='AUTO_SUBMIT'`, `message=''`
+- `downgrade()`: delete rows whose `rule_key` starts with `force_submit:tab_switch_detect:`.
+
+After this migration, existing exams' tab-switch checkbox renders as **checked**
+(since the derived checked-state check in §2 finds the rules), exactly preserving
+their current behavior. New exams created after this ships start unchecked, same
+as the other 10 features.
+
+### 6. Backend
+
+No changes beyond the one-time migration above. `alert_rules` already persists and evaluates arbitrary event types
 including `TAB_SWITCH` and `COPY_PASTE_ATTEMPT` (verified against the WebSocket
 client-event allowlist at `routes_public.py:3133`) even though the wizard's
 `ALERT_RULE_EVENT_OPTIONS` dropdown doesn't currently list every backend-supported
 event type — that dropdown is for the advanced manual builder and is unrelated to
 this feature.
 
-### 6. Locale
+### 7. Locale
 
 Two new `en.json` keys for the checkbox label and short helper text (e.g.
 `admin_wizard_force_submit_on_violation` / `_desc`). Per existing project
@@ -207,10 +236,9 @@ convention, only English is added; other locales fall back to `en.json`.
   type via the advanced builder:** both rules are evaluated independently by
   `_apply_alert_rules` (existing behavior for multiple rules on one event type,
   unchanged by this feature).
-- **Existing exams with a tab-switch `max_tab_blurs` set but the new checkbox never
-  touched:** after this change ships, their tab-switch force-submit checkbox
-  defaults to **unchecked** (no `force_submit:tab_switch_detect:*` rule exists yet),
-  which is a real behavior change — see Confirmed decisions.
+- **Existing exams:** covered by the §5 migration — their tab-switch checkbox
+  renders checked immediately after migration, so behavior is preserved with no
+  admin action required. Only *new* exams start with tab-switch force-submit off.
 
 ## Testing
 
@@ -222,8 +250,12 @@ convention, only English is added; other locales fall back to `en.json`.
     gone; tab-switch force-submit now only happens via a `forced_submit` response
     from ping/WS (existing `applyPingResponse`/`ProctorOverlay` tests should cover
     the delivery path already).
-- **Backend:** no new tests needed — `_apply_alert_rules` is unchanged; existing
-  coverage for `AUTO_SUBMIT` action applies directly.
+- **Backend:** `_apply_alert_rules` itself is unchanged, so no new tests there —
+  existing coverage for `AUTO_SUBMIT` action applies directly. The new migration
+  needs its own test: an exam with `tab_switch_detect=true` and no existing rules
+  gets the two rules backfilled with the right `threshold`; an exam that already has
+  a `force_submit:tab_switch_detect:*` rule (re-run case) is left untouched; an exam
+  with `tab_switch_detect=false` gets nothing.
 
 ## Out of scope
 
@@ -241,9 +273,12 @@ convention, only English is added; other locales fall back to `en.json`.
 
 - Scope: "Requirements + AI detectors" (11 features), not just tab-switching.
 - Tab-switching is **unified** into the same engine rather than kept as a separate
-  bespoke toggle — one consistent mechanism for all 11 features, at the cost of a
-  real behavior change for exams that relied on the old always-on hardcoded
-  tab-switch force-submit (it now requires the checkbox to be explicitly turned on,
-  same as every other feature).
-- No new backend schema — the existing `alert_rules` engine already does everything
-  needed; the checkbox is a UI convenience layer over it.
+  bespoke toggle — one consistent mechanism for all 11 features.
+- New exams: tab-switch force-submit defaults **off**, same as the other 10
+  features (all opt-in, no automatic behavior by default).
+- Existing exams: a one-time data migration (§5) backfills the tab-switch
+  force-submit rules so their checkbox renders **on** and behavior is unchanged —
+  no silent regression for exams already running with this protection.
+- No new backend schema for the feature itself — the existing `alert_rules` engine
+  already does everything needed; the checkbox is a UI convenience layer over it.
+  The only new backend artifact is the one-time backfill migration.
