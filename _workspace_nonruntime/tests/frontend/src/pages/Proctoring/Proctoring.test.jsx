@@ -11,6 +11,8 @@ const submitAnswerMock = vi.fn()
 const submitAttemptMock = vi.fn()
 const getTestQuestionsMock = vi.fn()
 const getTestMock = vi.fn()
+const getLearnerSectionsMock = vi.fn()
+const finishAttemptSectionMock = vi.fn()
 const consumeScreenStreamMock = vi.fn()
 const proctoringPingMock = vi.fn()
 const getProctoringVideoJobStatusMock = vi.fn()
@@ -80,6 +82,8 @@ vi.mock('../../services/attempt.service', () => ({
 vi.mock('../../services/test.service', () => ({
   getTest: (...args) => getTestMock(...args),
   getTestQuestions: (...args) => getTestQuestionsMock(...args),
+  getLearnerSections: (...args) => getLearnerSectionsMock(...args),
+  finishAttemptSection: (...args) => finishAttemptSectionMock(...args),
 }))
 
 vi.mock('../../services/proctoring.service', () => ({
@@ -158,6 +162,8 @@ describe('Proctoring page', () => {
       ],
     })
     getAttemptAnswersMock.mockResolvedValue({ data: [] })
+    getLearnerSectionsMock.mockResolvedValue({ data: [] })
+    finishAttemptSectionMock.mockResolvedValue({ data: {} })
   })
 
   afterEach(() => {
@@ -415,5 +421,29 @@ describe('Proctoring page', () => {
     await flushPromises()
 
     expect(submitAttemptMock).toHaveBeenCalledWith('attempt-1')
+  })
+
+  it('does not auto-submit on the tab-switch limit unless the server says forced_submit is true', async () => {
+    proctoringPingMock.mockResolvedValue({
+      data: { alerts: [], forced_submit: false, submit_reason: null },
+    })
+    getTestMock.mockResolvedValueOnce({
+      data: {
+        id: 'exam-1',
+        title: 'Physics Final',
+        proctoring_config: { tab_switch_detect: true, max_tab_blurs: 1 },
+      },
+    })
+
+    renderPage()
+    await flushPromises()
+    expect(screen.getByText('Physics Final')).toBeTruthy()
+
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    fireEvent(window, new Event('blur'))
+    await flushPromises()
+    await flushPromises()
+
+    expect(submitAttemptMock).not.toHaveBeenCalled()
   })
 })

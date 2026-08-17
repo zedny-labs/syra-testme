@@ -1379,14 +1379,17 @@ export default function Proctoring() {
   useEffect(() => {
     const max = proctorCfg.max_tab_blurs
     if (max && tabBlurs >= max) {
+      // Force-submitting on this limit now happens the same way as every other
+      // proctoring feature: the server evaluates `alert_rules` on each ping/WS
+      // event and reports `forced_submit`, handled by applyPingResponse /
+      // ProctorOverlay's forced_submit message. This effect only owns the toast.
       setToast({ severity: 'HIGH', event_type: 'TAB_SWITCH', detail: t('proctor_too_many_tabs') })
       lastToastBlursRef.current = tabBlurs
-      void runSubmissionFlow({ forceSubmit: true })
     } else if (tabBlurs > 0 && tabBlurs !== lastToastBlursRef.current && proctorCfg.tab_switch_detect) {
       lastToastBlursRef.current = tabBlurs
       setToast({ severity: 'MEDIUM', event_type: 'TAB_SWITCH', detail: t('proctor_tab_count', { count: tabBlurs }) })
     }
-  }, [runSubmissionFlow, tabBlurs, proctorCfg.max_tab_blurs, proctorCfg.tab_switch_detect])
+  }, [tabBlurs, proctorCfg.max_tab_blurs, proctorCfg.tab_switch_detect])
 
   // ── Copy / cut / paste blocking ────────────────────────────────────────────
   useEffect(() => {
