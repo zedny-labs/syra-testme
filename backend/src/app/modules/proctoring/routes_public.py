@@ -308,6 +308,40 @@ def _saved_video_events(db: Session, attempt_id: str) -> list[ProctoringEvent]:
     )
 
 
+async def _delete_video_storage_object(meta: object) -> bool:
+    """Delete the underlying storage object referenced by a VIDEO_SAVED
+    proctoring event's meta. Returns True if the remote file is gone (deleted
+    now, already gone, or there was nothing identifiable to delete), False if
+    a delete was attempted against a configured provider and it failed."""
+    if not isinstance(meta, dict):
+        return True
+    provider = str(meta.get("provider") or "").strip().lower()
+
+    if provider == "cloudflare":
+        uid = str(meta.get("uid") or "").strip()
+        if not uid:
+            return True
+        from ...services.cloudflare_media import delete_cloudflare_video
+        return await delete_cloudflare_video(uid)
+
+    if provider == "vimeo":
+        uid = str(meta.get("uid") or "").strip() or None
+        uri = str(meta.get("uri") or "").strip() or None
+        if not uid and not uri:
+            return True
+        from ...services.vimeo_media import delete_vimeo_video
+        return await delete_vimeo_video(uid=uid, uri=uri)
+
+    if provider == "supabase":
+        path = str(meta.get("path") or "").strip()
+        if not path:
+            return True
+        from ...services.supabase_storage import delete_object
+        return await delete_object(path)
+
+    return True
+
+
 def _video_upload_progress_events(db: Session, attempt_id: str) -> list[ProctoringEvent]:
     return list(
         db.scalars(
@@ -2125,6 +2159,7 @@ async def list_videos(
         item = _normalize_saved_video_meta(event.meta, event.occurred_at)
         if not item:
             continue
+        item["event_id"] = str(event.id)
         key = (
             str(item.get("session_id") or item.get("path") or item.get("name") or item.get("url") or ""),
             str(item.get("source") or "camera"),

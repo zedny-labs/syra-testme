@@ -226,3 +226,31 @@ async def get_vimeo_video_details(
     finally:
         if owns_client:
             await client.aclose()
+
+
+async def delete_vimeo_video(
+    *,
+    uid: str | None = None,
+    uri: str | None = None,
+    client: httpx.AsyncClient | None = None,
+) -> bool:
+    """Permanently delete a video from Vimeo. Returns True on success (including
+    if the video was already gone), False if the delete call failed."""
+    video_id = uid or _extract_video_id(uri)
+    if not video_id:
+        return False
+
+    owns_client = client is None
+    client = client or _new_client()
+    try:
+        response = await client.delete(f"{API_BASE}/videos/{video_id}", headers=_headers())
+        if response.status_code == 404:
+            return True
+        response.raise_for_status()
+        return True
+    except Exception as exc:
+        logger.warning("Failed to delete Vimeo video %s: %s", video_id, exc)
+        return False
+    finally:
+        if owns_client:
+            await client.aclose()

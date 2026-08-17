@@ -35,9 +35,10 @@ from ...models import (
     User,
 )
 from ...schemas import PaginatedResponse, ProctoringEventRead
+from ...services.audit import write_audit_log
 from ...utils.pagination import MAX_PAGE_SIZE, normalize_pagination
 from ...core.i18n import translate as _t
-from .routes_public import _build_attempt_proctoring_summary, _is_summary_alert_event
+from .routes_public import _build_attempt_proctoring_summary, _delete_video_storage_object, _is_summary_alert_event
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -237,6 +238,40 @@ def get_session_summary(
         "expected_recordings": summary["expected_recordings"],
         "timeline": timeline,
     }
+
+
+@router.delete("/admin/sessions/{attempt_id}/videos/{event_id}")
+async def delete_proctoring_video(
+    attempt_id: str,
+    event_id: str,
+    current: User = Depends(require_permission("proctoring.admin", RoleEnum.ADMIN)),
+    db: Session = Depends(get_db_dep),
+):
+    """Permanently delete a single uploaded proctoring recording: removes the
+    file from the configured storage provider (Cloudflare/Vimeo/Supabase) on a
+    best-effort basis, then always removes the VIDEO_SAVED event so it stops
+    appearing in the admin UI. Irreversible."""
+    from ...api.deps import parse_uuid_param
+
+    attempt_pk = parse_uuid_param(attempt_id, detail=_t("attempt_not_found"))
+    attempt = db.get(Attempt, attempt_pk)
+    if not attempt:
+        raise HTTPException(status_code=404, detail=_t("attempt_not_found"))
+    _owned_exam_or_404(db, attempt.exam_id, current)
+
+    event_pk = parse_uuid_param(event_id, detail=_t("not_found"))
+    event = db.get(ProctoringEvent, event_pk)
+    if not event or event.attempt_id != attempt_pk or event.event_type != "VIDEO_SAVED":
+        raise HTTPException(status_code=404, detail=_t("not_found"))
+
+    storage_deleted = await _delete_video_storage_object(event.meta)
+    db.delete(event)
+    audit_detail = f"Deleted proctoring video (event {event.id}) for attempt {attempt.id}"
+    if not storage_deleted:
+        audit_detail += " — storage delete failed, DB reference removed only"
+    write_audit_log(db, current.id, "PROCTORING_VIDEO_DELETED", "attempt", str(attempt.id), detail=audit_detail)
+
+    return {"deleted": True, "storage_deleted": storage_deleted}
 
 
 @router.get("/admin/sessions/{attempt_id}/export")

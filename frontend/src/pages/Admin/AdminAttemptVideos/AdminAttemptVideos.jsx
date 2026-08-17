@@ -148,6 +148,8 @@ export default function AdminAttemptVideos() {
   const [warning, setWarning] = useState('')
   const [selectedVideoName, setSelectedVideoName] = useState('')
   const [selectedVideoUrl, setSelectedVideoUrl] = useState('')
+  const [deleteVideoConfirm, setDeleteVideoConfirm] = useState(false)
+  const [deletingVideo, setDeletingVideo] = useState(false)
   const [selectedEvidenceUrl, setSelectedEvidenceUrl] = useState('')
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
@@ -284,6 +286,10 @@ export default function AdminAttemptVideos() {
     () => videos.find((v) => v.name === selectedVideoName) || videos[0] || null,
     [videos, selectedVideoName],
   )
+
+  useEffect(() => {
+    setDeleteVideoConfirm(false)
+  }, [selectedVideoName])
   const selectedVideoIsPlayable = useMemo(
     () => isVideoPlayable(selectedVideo),
     [selectedVideo],
@@ -559,6 +565,25 @@ export default function AdminAttemptVideos() {
     setSelectedEventId('')
     setWarning('')
     setRetryToken((current) => current + 1)
+  }
+
+  const handleDeleteVideo = async () => {
+    if (!selectedVideo?.event_id || !activeAttemptId) return
+    if (!deleteVideoConfirm) {
+      setDeleteVideoConfirm(true)
+      return
+    }
+    setDeleteVideoConfirm(false)
+    setDeletingVideo(true)
+    setError('')
+    try {
+      await adminApi.deleteAttemptVideo(activeAttemptId, selectedVideo.event_id)
+      handleRetry()
+    } catch (e) {
+      setError(e.response?.data?.detail || t('admin_videos_delete_failed'))
+    } finally {
+      setDeletingVideo(false)
+    }
   }
 
   const clearFilters = () => {
@@ -906,6 +931,35 @@ export default function AdminAttemptVideos() {
               ) : (
                 <span className={styles.loadingFile}>{describeVideoAvailability(selectedVideo, t)}</span>
               )}
+              {selectedVideo?.event_id ? (
+                <div className={styles.deleteVideoRow}>
+                  {deleteVideoConfirm ? (
+                    <span className={styles.deleteVideoWarning}>{t('admin_videos_delete_confirm_warning')}</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={deleteVideoConfirm ? styles.dangerBtn : styles.refreshBtn}
+                    disabled={deletingVideo}
+                    onClick={handleDeleteVideo}
+                  >
+                    {deletingVideo
+                      ? t('admin_videos_deleting')
+                      : deleteVideoConfirm
+                        ? t('admin_videos_confirm_delete')
+                        : t('admin_videos_delete_recording')}
+                  </button>
+                  {deleteVideoConfirm ? (
+                    <button
+                      type="button"
+                      className={styles.refreshBtn}
+                      disabled={deletingVideo}
+                      onClick={() => setDeleteVideoConfirm(false)}
+                    >
+                      {t('cancel')}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className={styles.playerViewport}>

@@ -196,6 +196,29 @@ async def get_cloudflare_video_details(
     return {}
 
 
+async def delete_cloudflare_video(uid: str, *, client: httpx.AsyncClient | None = None) -> bool:
+    """Permanently delete a video from the Cloudflare media gateway. Returns True
+    on success (including if the video was already gone), False if the delete
+    call failed."""
+    if not str(uid or "").strip():
+        return False
+
+    owns_client = client is None
+    client = client or httpx.AsyncClient(timeout=60)
+    try:
+        response = await client.delete(f"{_base_url()}/videos/{uid}")
+        if response.status_code == 404:
+            return True
+        response.raise_for_status()
+        return True
+    except Exception as exc:
+        logger.warning("Failed to delete Cloudflare video %s: %s", uid, exc)
+        return False
+    finally:
+        if owns_client:
+            await client.aclose()
+
+
 async def upload_video_to_cloudflare(file_path: Path, *, filename: str, source: str) -> dict:
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     file_size = file_path.stat().st_size if file_path.exists() else 0

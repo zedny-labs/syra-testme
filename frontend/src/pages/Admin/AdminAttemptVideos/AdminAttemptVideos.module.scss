@@ -127,6 +127,41 @@
   cursor: not-allowed;
 }
 
+.dangerBtn {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+  border-radius: 12px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-danger) 18%, var(--color-danger-bg));
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.deleteVideoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.deleteVideoWarning {
+  font-size: 0.82rem;
+  color: var(--color-danger-text);
+  flex-basis: 100%;
+}
+
 .supervisionRow {
   display: flex;
   align-items: center;
